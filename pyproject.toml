@@ -25,6 +25,7 @@ dependencies = [
     "Flask",
     "Werkzeug==2.2.2",
     "gevent",
+    "openai",
     "Pillow==9.3.0; platform_python_implementation != 'PyPy'",
     "Pillow>=11.2.1; platform_python_implementation == 'PyPy'",
     "psutil",
