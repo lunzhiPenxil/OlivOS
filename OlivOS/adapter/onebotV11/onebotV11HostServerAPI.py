@@ -36,20 +36,32 @@ RECONNECT_DELAY = 4
 
 
 class server(OlivOS.API.Proc_templet):
-    """OneBot11 WebSocket 服务器"""
+    """OneBot11 反向WebSocket 服务器
+    
+    Args:
+    - Proc_name: 进程名称
+    - scan_interval: 扫描间隔，单位秒，默认为0.001s
+    - dead_interval: 枪毙间隔，单位秒，默认为1s
+    - rx_queue: 接收队列，默认为None
+    - tx_queue: 发送队列，默认为None
+    - control_queue: 控制队列，默认为None
+    - logger_proc: 日志进程，用于记录日志，默认为None
+    - debug_mode: 调试模式，默认为False
+    - bot_info_dict: 机器人信息字典，包含host、port、access_token等信息，默认为None
+    """
 
     def __init__(
         self,
         Proc_name: str,
-        scan_interval=0.001,
-        dead_interval=1,
+        scan_interval: float = 0.001,
+        dead_interval: float = 1,
         rx_queue=None,
         tx_queue=None,
         control_queue=None,
         logger_proc=None,
         debug_mode=False,
         bot_info_dict=None,
-    ):
+    ) -> None:
         OlivOS.API.Proc_templet.__init__(
             self,
             Proc_name=Proc_name,
@@ -72,7 +84,7 @@ class server(OlivOS.API.Proc_templet):
         self.Proc_config['access_token'] = bot_info_dict.post_info.access_token
         self.Proc_data['platform_bot_info_dict'] = None
 
-    def start(self):
+    def start(self) -> threading.Thread:
         """重写自基类的start方法，强制使用线程来运行事件循环"""
         proc_this = threading.Thread(
             target=lambda: asyncio.run(self.run()),
@@ -83,13 +95,22 @@ class server(OlivOS.API.Proc_templet):
         # self.Proc = proc_this
         return proc_this
 
-    def start_unity(self, mode='threading'):
-        """事实上参数mode已经没有意义了，目前强制新开一个线程来运行事件循环"""
+    def start_unity(self, mode : str = 'threading') -> threading.Thread:
+        """重写自基类的start_unity方法，强制使用线程来运行事件循环
+
+        OlivOS是基于多线程/多进程设计的，事件循环必须在独立线程中运行，因此不支持其他模式
+
+        Args:
+        - mode: 启动模式，默认为'threading'，目前仅支持线程，且无法根据传入值切换"""
         proc_this = self.start()
         return proc_this
 
-    async def consumer(self, websocket):
-        """消费者，即接收逻辑的执行者"""
+    async def consumer(self, websocket: websockets.WebSocketServerProtocol) -> None:
+        """消费者，即接收逻辑的执行者
+        
+        Args:
+        - websocket: WebSocket连接对象, 用于接收消息
+        """
         try:
             async for raw_message in websocket:
                 try:
@@ -105,8 +126,12 @@ class server(OlivOS.API.Proc_templet):
         finally:
             pass
 
-    async def producer(self, websocket):
-        """生产者，即发送逻辑的执行者"""
+    async def producer(self, websocket: websockets.WebSocketServerProtocol) -> None:
+        """生产者，即发送逻辑的执行者
+        
+        Args:
+        - websocket: WebSocket连接对象, 用于发送消息
+        """
         try:
             while True:
                 rx_packet_data = None
@@ -137,8 +162,12 @@ class server(OlivOS.API.Proc_templet):
         finally:
             pass
 
-    async def handler(self, websocket):
-        """处理WebSocket连接的协程"""
+    async def handler(self, websocket: websockets.WebSocketServerProtocol) -> None:
+        """处理WebSocket连接的协程
+
+        Args:
+        - websocket: WebSocket连接对象, 用于传给consumer和producer接收和发送消息
+        """
         self.on_open()
 
         consumer_task = asyncio.create_task(self.consumer(websocket))
@@ -168,7 +197,7 @@ class server(OlivOS.API.Proc_templet):
         finally:
             self.on_close()
 
-    async def run(self):
+    async def run(self) -> None:
         """运行WebSocket服务器的主协程"""
         self.log(
             2,
@@ -182,7 +211,10 @@ class server(OlivOS.API.Proc_templet):
             )
         )
 
-        def process_request(connection, request):
+        def process_request(
+            connection: websockets.WebSocketServerProtocol,
+            request: websockets.WebSocketServerProtocol
+        ) -> Response | None:
             """验证客户端的访问令牌"""
             access_token = self.Proc_config.get('access_token', '')
             if not access_token:
@@ -235,7 +267,7 @@ class server(OlivOS.API.Proc_templet):
                 )
                 await asyncio.sleep(RECONNECT_DELAY)
 
-    def on_open(self):
+    def on_open(self) -> None:
         """连接建立时的日志打印"""
         self.log(
             2,
@@ -246,7 +278,7 @@ class server(OlivOS.API.Proc_templet):
             )
         )
 
-    def on_close(self):
+    def on_close(self) -> None:
         """连接关闭时的日志打印"""
         self.log(
             0,
@@ -257,7 +289,7 @@ class server(OlivOS.API.Proc_templet):
             )
         )
 
-    def on_error(self):
+    def on_error(self) -> None:
         """发生错误时的日志打印"""
         self.log(
             2,
