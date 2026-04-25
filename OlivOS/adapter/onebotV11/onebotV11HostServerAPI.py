@@ -37,7 +37,7 @@ RECONNECT_DELAY = 4
 
 class server(OlivOS.API.Proc_templet):
     """OneBot11 反向WebSocket 服务器
-    
+
     Args:
     - Proc_name: 进程名称
     - scan_interval: 扫描间隔，单位秒，默认为0.001s
@@ -107,7 +107,7 @@ class server(OlivOS.API.Proc_templet):
 
     async def consumer(self, websocket: websockets.WebSocketServerProtocol) -> None:
         """消费者，即接收逻辑的执行者
-        
+
         Args:
         - websocket: WebSocket连接对象, 用于接收消息
         """
@@ -128,7 +128,7 @@ class server(OlivOS.API.Proc_templet):
 
     async def producer(self, websocket: websockets.WebSocketServerProtocol) -> None:
         """生产者，即发送逻辑的执行者
-        
+
         Args:
         - websocket: WebSocket连接对象, 用于发送消息
         """
