@@ -95,7 +95,7 @@ class server(OlivOS.API.Proc_templet):
         # self.Proc = proc_this
         return proc_this
 
-    def start_unity(self, mode : str = 'threading') -> threading.Thread:
+    def start_unity(self, mode: str = 'threading') -> threading.Thread:
         """重写自基类的start_unity方法，强制使用线程来运行事件循环
 
         OlivOS是基于多线程/多进程设计的，事件循环必须在独立线程中运行，因此不支持其他模式
@@ -293,7 +293,7 @@ class server(OlivOS.API.Proc_templet):
         """发生错误时的日志打印"""
         self.log(
             2,
-            OlivOS.L10NAPI.gketTrans(
+            OlivOS.L10NAPI.getTrans(
                 'OlivOS onebotV11 host server [{0}] websocket link error',
                 [self.Proc_name],
                 modelName
