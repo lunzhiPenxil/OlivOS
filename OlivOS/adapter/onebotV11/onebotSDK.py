@@ -86,6 +86,34 @@ def get_SDK_bot_info_from_Event(target_event):
     return res
 
 
+def sendControlEventSend(action, data, control_queue):
+    if control_queue is not None:
+        control_queue.put(
+            OlivOS.API.Control.packet(
+                action,
+                data
+            ),
+            block=False
+        )
+
+
+def send_ws_event(hash, data, control_queue):
+    sendControlEventSend(
+        'send',
+        {
+            'target': {
+                'type': 'onebotV11_link',
+                'hash': hash
+            },
+            'data': {
+                'action': 'send',
+                'data': data
+            }
+        },
+        control_queue
+    )
+
+
 class send_onebot_post_json_T(object):
     def __init__(self):
         self.bot_info = None
@@ -196,34 +224,6 @@ class api_templet(object):
                     res_obj['params'][key_this] = self.data.__dict__[key_this]
         res = json.dumps(res_obj, ensure_ascii=False)
         return res
-
-
-def sendControlEventSend(action, data, control_queue):
-    if control_queue is not None:
-        control_queue.put(
-            OlivOS.API.Control.packet(
-                action,
-                data
-            ),
-            block=False
-        )
-
-
-def send_ws_event(hash, data, control_queue):
-    sendControlEventSend(
-        'send',
-        {
-            'target': {
-                'type': 'onebotV11_link',
-                'hash': hash
-            },
-            'data': {
-                'action': 'send',
-                'data': data
-            }
-        },
-        control_queue
-    )
 
     def do_api_async(self):
         this_post_json = send_onebot_post_json_T()
