@@ -210,9 +210,6 @@ class api_templet(object):
                 self.res = None
         return self.res
 
-    def do_api_async(self):
-        return self.do_api()
-
     def do_dump(self):
         res_obj = {
             'action': self.node_ext,
