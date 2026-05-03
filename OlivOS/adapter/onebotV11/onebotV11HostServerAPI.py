@@ -15,8 +15,11 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 '''
 
 import json
+import socket
 import asyncio
 import threading
+import traceback
+import multiprocessing
 import websockets
 from websockets import Response, Headers
 import http
@@ -32,7 +35,6 @@ gCheckList = [
 DEFAULT_SCAN_INTERVAL = 0.001
 DEFAULT_DEAD_INTERVAL = 1
 QUEUE_TIMEOUT = 0.1
-RECONNECT_DELAY = 4
 
 
 class server(OlivOS.API.Proc_templet):
@@ -82,7 +84,7 @@ class server(OlivOS.API.Proc_templet):
             self.Proc_config['host'] = self.Proc_config['host'].split('://', 1)[1]
         self.Proc_config['port'] = bot_info_dict.post_info.port
         self.Proc_config['access_token'] = bot_info_dict.post_info.access_token
-        self.Proc_data['platform_bot_info_dict'] = None
+        self.Proc_data['bot_info_dict'] = bot_info_dict
 
     def start(self) -> threading.Thread:
         """重写自基类的start方法，强制使用线程来运行事件循环"""
@@ -105,64 +107,57 @@ class server(OlivOS.API.Proc_templet):
         proc_this = self.start()
         return proc_this
 
-    async def consumer(self, websocket: websockets.WebSocketServerProtocol) -> None:
+    async def consumer(self, websocket: websockets.ServerConnection) -> None:
         """消费者，即接收逻辑的执行者
 
         Args:
         - websocket: WebSocket连接对象, 用于接收消息
         """
-        try:
-            async for raw_message in websocket:
-                try:
-                    sdk_event = OlivOS.onebotSDK.event(raw_message)
-                    if not sdk_event.active:
-                        continue
-                    tx_packet_data = OlivOS.pluginAPI.shallow.rx_packet(sdk_event)
-                    self.Proc_info.tx_queue.put(tx_packet_data, block=False)
-                except Exception:
+        async for raw_message in websocket:
+            try:
+                sdk_event = OlivOS.onebotSDK.event(raw_message)
+                if not sdk_event.active:
                     continue
-        except asyncio.CancelledError:
-            raise
-        finally:
-            pass
+                tx_packet_data = OlivOS.pluginAPI.shallow.rx_packet(sdk_event)
+                self.Proc_info.tx_queue.put(tx_packet_data, block=False)
+            except Exception as e:
+                self.on_error(e)
 
-    async def producer(self, websocket: websockets.WebSocketServerProtocol) -> None:
+    async def producer(self, websocket: websockets.ServerConnection) -> None:
         """生产者，即发送逻辑的执行者
 
         Args:
         - websocket: WebSocket连接对象, 用于发送消息
         """
-        try:
-            while True:
-                rx_packet_data = None
+        while True:
+            rx_packet_data = None
+            try:
+                tmp_rx_queue: multiprocessing.Queue = multiprocessing.Queue()
+                tmp_rx_queue.get_nowait()
+                if not self.Proc_info.rx_queue.empty():
+                    rx_packet_data = await asyncio.to_thread(
+                        self.Proc_info.rx_queue.get_nowait  # 使用非阻塞的get_nowait
+                    )
+            except Exception:
+                # 如果没有数据则等待
+                await asyncio.sleep(QUEUE_TIMEOUT)
+                continue
+
+            if rx_packet_data is not None:
                 try:
-                    if not self.Proc_info.rx_queue.empty():
-                        rx_packet_data = await asyncio.to_thread(
-                            self.Proc_info.rx_queue.get
-                        )
-                except Exception:
-                    await asyncio.sleep(QUEUE_TIMEOUT)
-                    continue
+                    data_part = rx_packet_data.key.get('data', {})
+                    if data_part.get('action') == 'send':
+                        payload = data_part.get('data')
+                        if payload:
+                            if isinstance(payload, (dict, list)):
+                                payload = json.dumps(payload)
+                            await websocket.send(payload)
+                except Exception as e:
+                    self.on_error(e)
+            else:
+                await asyncio.sleep(QUEUE_TIMEOUT)
 
-                if rx_packet_data is not None:
-                    try:
-                        data_part = rx_packet_data.key.get('data', {})
-                        if data_part.get('action') == 'send':
-                            payload = data_part.get('data')
-                            if payload:
-                                if isinstance(payload, (dict, list)):
-                                    payload = json.dumps(payload)
-                                await websocket.send(payload)
-                    except Exception:
-                        pass
-                else:
-                    await asyncio.sleep(QUEUE_TIMEOUT)
-        except asyncio.CancelledError:
-            raise
-        finally:
-            pass
-
-    async def handler(self, websocket: websockets.WebSocketServerProtocol) -> None:
+    async def handler(self, websocket: websockets.ServerConnection) -> None:
         """处理WebSocket连接的协程
 
         Args:
@@ -175,7 +170,7 @@ class server(OlivOS.API.Proc_templet):
         try:
             done, pending = await asyncio.wait(
                 [consumer_task, producer_task],
-                return_when=asyncio.ALL_COMPLETED,
+                return_when=asyncio.FIRST_COMPLETED,
             )
 
             # 取消所有待处理的任务
@@ -183,8 +178,10 @@ class server(OlivOS.API.Proc_templet):
                 task.cancel()
                 try:
                     await task
-                except Exception:
-                    self.on_error()
+                except asyncio.CancelledError:
+                    pass
+                except Exception as e:
+                    self.on_error(e)
 
             # 取消所有任务
             for task in [consumer_task, producer_task]:
@@ -192,28 +189,42 @@ class server(OlivOS.API.Proc_templet):
                     task.cancel()
                     try:
                         await task
-                    except Exception:
-                        self.on_error()
+                    except asyncio.CancelledError:
+                        pass
+                    except Exception as e:
+                        self.on_error(e)
         finally:
             self.on_close()
 
     async def run(self) -> None:
         """运行WebSocket服务器的主协程"""
+        if not is_free_port(self.Proc_config['port']):
+            self.log(
+                3,
+                OlivOS.L10NAPI.getTrans(
+                    'OlivOS onebotV11 host server [{0}] websocket link port [{1}] is in use',
+                    [self.Proc_name, self.Proc_config['port']],
+                    modelName
+                )
+            )
+            self.on_lost()
+            return
+
         self.log(
             2,
             OlivOS.L10NAPI.getTrans(
                 'OlivOS onebotV11 host server [{0}] is running on [{1}]',
                 [
                     self.Proc_name,
-                    f"ws://{self.Proc_config['host']}:{self.Proc_config['port']}/"
+                    f"ws://{self.Proc_config['host']}:{self.Proc_config['port']}"
                 ],
                 modelName
             )
         )
 
         def process_request(
-            connection: websockets.WebSocketServerProtocol,
-            request: websockets.WebSocketServerProtocol
+            connection: websockets.ServerConnection,
+            request: websockets.Request
         ) -> Response | None:
             """验证客户端的访问令牌"""
             access_token = self.Proc_config.get('access_token', '')
@@ -240,35 +251,17 @@ class server(OlivOS.API.Proc_templet):
             return None
 
         while True:
-            try:
-                async with websockets.serve(
-                    self.handler,
-                    self.Proc_config['host'],
-                    self.Proc_config['port'],
-                    process_request=process_request
-                ):
-                    await asyncio.Future()  # run forever
-            except Exception:
-                self.log(
-                    3,
-                    OlivOS.L10NAPI.getTrans(
-                        'OlivOS onebotV11 host server [{0}] websocket link lost',
-                        [self.Proc_name],
-                        modelName
-                    )
-                )
-                self.log(
-                    3,
-                    OlivOS.L10NAPI.getTrans(
-                        'OlivOS onebotV11 host server [{0}] websocket link will retry in {1}s',
-                        [self.Proc_name, str(RECONNECT_DELAY)],
-                        modelName
-                    )
-                )
-                await asyncio.sleep(RECONNECT_DELAY)
+            async with websockets.serve(
+                self.handler,
+                self.Proc_config['host'],
+                self.Proc_config['port'],
+                process_request=process_request
+            ):
+                await asyncio.Future()  # run forever
+            self.on_lost()
 
     def on_open(self) -> None:
-        """连接建立时的日志打印"""
+        """连接建立时的处理"""
         self.log(
             2,
             OlivOS.L10NAPI.getTrans(
@@ -279,7 +272,7 @@ class server(OlivOS.API.Proc_templet):
         )
 
     def on_close(self) -> None:
-        """连接关闭时的日志打印"""
+        """连接关闭时的处理"""
         self.log(
             0,
             OlivOS.L10NAPI.getTrans(
@@ -289,13 +282,38 @@ class server(OlivOS.API.Proc_templet):
             )
         )
 
-    def on_error(self) -> None:
-        """发生错误时的日志打印"""
+    def on_lost(self) -> None:
+        """连接丢失时的处理"""
         self.log(
-            2,
+            0,
             OlivOS.L10NAPI.getTrans(
-                'OlivOS onebotV11 host server [{0}] websocket link error',
+                'OlivOS onebotV11 host server [{0}] websocket link lost',
                 [self.Proc_name],
                 modelName
             )
         )
+
+    def on_error(self, error: Exception) -> None:
+        """发生错误时的处理"""
+        self.log(
+            4,
+            OlivOS.L10NAPI.getTrans(
+                'OlivOS onebotV11 host server [{0}] websocket link error: \n{1}',
+                [self.Proc_name, traceback.format_exc()],
+                modelName
+            )
+        )
+
+
+def is_free_port(port: int) -> bool:
+    """检查端口是否可用"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) != 0
+
+
+def get_free_port() -> int:
+    """获取一个可用的端口号"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(('127.0.0.1', 0))
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        return s.getsockname()[1]
