@@ -19,7 +19,6 @@ import socket
 import asyncio
 import threading
 import traceback
-import multiprocessing
 import websockets
 from websockets import Response, Headers
 import http
@@ -132,8 +131,6 @@ class server(OlivOS.API.Proc_templet):
         while True:
             rx_packet_data = None
             try:
-                tmp_rx_queue: multiprocessing.Queue = multiprocessing.Queue()
-                tmp_rx_queue.get_nowait()
                 if not self.Proc_info.rx_queue.empty():
                     rx_packet_data = await asyncio.to_thread(
                         self.Proc_info.rx_queue.get_nowait  # 使用非阻塞的get_nowait
