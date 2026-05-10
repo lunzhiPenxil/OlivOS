@@ -14,7 +14,6 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 @Desc      :   OneBot11 WebSocket-Forward Server Implementation
 '''
 
-import json
 import asyncio
 import threading
 import traceback
