@@ -1,3 +1,20 @@
 {
-    "account": []
+    "account": [
+        {
+            "id": 177416376,
+            "password": "",
+            "sdk_type": "onebot",
+            "platform_type": "qq",
+            "model_type": "default",
+            "server": {
+                "auto": true,
+                "type": "websocket",
+                "host": "ws://127.0.0.1:3004/",
+                "port": 3001,
+                "access_token": "123"
+            },
+            "extends": {},
+            "debug": false
+        }
+    ]
 }
