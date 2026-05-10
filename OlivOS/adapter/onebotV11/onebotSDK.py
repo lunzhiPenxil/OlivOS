@@ -48,6 +48,8 @@ lagrangeModelMap = [
 
 gFlagCheckList = []
 
+gResReg = {}
+
 
 class bot_info_T(object):
     def __init__(self, id=-1, host='', port=-1, access_token=None):
@@ -136,17 +138,17 @@ class send_onebot_post_json_T(object):
                 if clear_dict.get('message_type') == 'private':
                     clear_dict.pop('group_id', 'No "group_id"')
                 json_str_tmp = json.dumps(obj=clear_dict, ensure_ascii=False)
-                tmp_host = self.bot_info.host
-                if tmp_host.startswith('http://') or tmp_host.startswith('https://'):
-                    pass
+
+                if self.bot_info.host.startswith('http://') or self.bot_info.host.startswith('https://'):
+                    protocol_header = ''
                 else:
-                    tmp_host = 'http://' + tmp_host
+                    protocol_header = 'http://'
                 token_str = ''
                 token_dict = {}
                 if len(self.bot_info.access_token) > 0:
                     token_str = f'?access_token={self.bot_info.access_token}'
                     token_dict = {'Authorization': f'Bearer {self.bot_info.access_token}'}
-                send_url = f'{self.bot_info.host}:{self.bot_info.port}/{self.node_ext}{token_str}'
+                send_url = f'{protocol_header}{self.bot_info.host}:{self.bot_info.port}/{self.node_ext}{token_str}'
 
                 if self.bot_info.debug_mode:
                     if self.bot_info.debug_logger is not None:
@@ -172,8 +174,12 @@ class api_templet(object):
         self.bot_info = None
         self.data = None
         self.node_ext = None
-        self.echo = uuid.uuid4()
-        self.res = None
+        self.echo = str(uuid.uuid4())
+        self.res: api_templet.Result = None
+
+    class Result(object):
+        def __init__(self, raw: str | dict):
+            self.body = raw
 
     def do_api(self, control_queue=None):
         server_type = self.bot_info.server_type
@@ -183,29 +189,36 @@ class api_templet(object):
             this_post_json.obj = self.data
             this_post_json.node_ext = self.node_ext
             try:
-                self.res = this_post_json.send_onebot_post_json()
+                tmp_raw = this_post_json.send_onebot_post_json()
+                self.res = self.Result(tmp_raw.text)
             except Exception:
                 self.res = None
         elif server_type == "websocket":
             try:
                 bot_hash = self.bot_info.hash
                 data = self.do_dump()
+                waitForResReady(self.echo)
                 self.res = send_ws_event(
                     hash=bot_hash,
                     data=data,
                     control_queue=control_queue
                 )
+                tmp_raw = waitForRes(self.echo)
+                self.res = self.Result(tmp_raw)
             except Exception:
                 self.res = None
         elif server_type == "websocket_host":
             try:
                 bot_hash = self.bot_info.hash
                 data = self.do_dump()
-                self.res = send_ws_event(
+                waitForResReady(self.echo)
+                send_ws_event(
                     hash=bot_hash,
                     data=data,
                     control_queue=control_queue
                 )
+                tmp_raw = waitForRes(self.echo)
+                self.res = self.Result(tmp_raw)
             except Exception:
                 self.res = None
         return self.res
@@ -214,6 +227,7 @@ class api_templet(object):
         res_obj = {
             'action': self.node_ext,
             'params': {},
+            'echo': self.echo
         }
         if self.data is not None:
             for key_this in self.data.__dict__:
@@ -253,17 +267,16 @@ class api_templet(object):
         ):
             return None
         try:
-            tmp_host = self.bot_info.host
-            if tmp_host.startswith('http://') or tmp_host.startswith('https://'):
-                pass
+            if self.bot_info.host.startswith('http://') or self.bot_info.host.startswith('https://'):
+                protocol_header = ''
             else:
-                tmp_host = 'http://' + tmp_host
+                protocol_header = 'http://'
             token_str = ''
             token_dict = {}
             if len(self.bot_info.access_token) > 0:
                 token_str = f'?access_token={self.bot_info.access_token}'
                 token_dict = {'Authorization': f'Bearer {self.bot_info.access_token}'}
-            send_url = f'{self.bot_info.host}:{self.bot_info.port}/{self.node_ext}{token_str}'
+            send_url = f'{protocol_header}{self.bot_info.host}:{self.bot_info.port}/{self.node_ext}{token_str}'
             if self.bot_info.debug_mode:
                 if self.bot_info.debug_logger is not None:
                     self.bot_info.debug_logger.log(0, self.node_ext + ': GET request')
@@ -282,7 +295,7 @@ class api_templet(object):
 
 
 class event(object):
-    def __init__(self, raw):
+    def __init__(self, raw, extras: dict = None):
         self.raw = raw
         self.json = self.event_load(raw)
         self.platform = {'sdk': 'onebot', 'platform': 'qq', 'model': 'default'}
@@ -291,9 +304,19 @@ class event(object):
             self.active = True
         self.base_info = {}
         if self.active:
-            self.base_info['time'] = self.json['time']
-            self.base_info['self_id'] = self.json['self_id']
-            self.base_info['post_type'] = self.json['post_type']
+            if 'retcode' not in self.json:
+                # 以retcode字段区分事件上报/API响应
+                self.base_info['time'] = self.json['time']
+                self.base_info['self_id'] = self.json['self_id']
+                self.base_info['post_type'] = self.json['post_type']
+            if extras is not None:
+                # 兼容新的websocket驱动器(onebotV11HostServer)
+                if 'id' in extras:
+                    self.base_info['self_id'] = extras['id']
+                if 'token' in extras:
+                    self.base_info['token'] = extras['token']
+                if 'type' in extras:
+                    self.base_info['server_type'] = extras['type']
 
     def event_load(self, raw):
         try:
@@ -338,13 +361,23 @@ def format_cq_code_msg(msg):
 # 支持OlivOS API事件生成的映射实现
 def get_Event_from_SDK(target_event):
     target_event.base_info['time'] = target_event.sdk_event.base_info.get('time', int(time.time()))
-    target_event.base_info['self_id'] = str(target_event.sdk_event.base_info['self_id'])
-    target_event.base_info['type'] = target_event.sdk_event.base_info['post_type']
+    target_event.base_info['self_id'] = str(target_event.sdk_event.base_info.get('self_id', '-1'))
+    target_event.base_info['type'] = target_event.sdk_event.base_info.get('post_type', 'None')
     target_event.platform['sdk'] = target_event.sdk_event.platform['sdk']
     target_event.platform['platform'] = target_event.sdk_event.platform['platform']
     target_event.platform['model'] = target_event.sdk_event.platform['model']
     target_event.plugin_info['message_mode_rx'] = 'old_string'
-    if target_event.base_info['type'] == 'message_sent':
+    if (
+        'retcode' in target_event.sdk_event.json
+        and 'echo' in target_event.sdk_event.json
+        and type(target_event.sdk_event.json['echo']) is str
+    ):
+        target_event.active = False
+        waitForResSet(
+            target_event.sdk_event.json['echo'],
+            target_event.sdk_event.json
+        )
+    elif target_event.base_info['type'] == 'message_sent':
         """_自身消息事件_
         添加`message_sent`事件,详见:https://docs.go-cqhttp.org/event/#%E6%89%80%E6%9C%89%E4%B8%8A%E6%8A%A5
         """
@@ -723,7 +756,7 @@ class event_action(object):
         this_msg.data.message_id = str(message_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -749,7 +782,7 @@ class event_action(object):
         this_msg.data.id = str(message_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -903,7 +936,7 @@ class event_action(object):
         this_msg = api.get_login_info(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -920,7 +953,7 @@ class event_action(object):
         this_msg.data.no_cache = no_cache
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -935,7 +968,7 @@ class event_action(object):
         this_msg = api.get_friend_list(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -955,7 +988,7 @@ class event_action(object):
         this_msg.data.no_cache = no_cache
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -973,7 +1006,7 @@ class event_action(object):
         this_msg = api.get_group_list(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -982,10 +1015,12 @@ class event_action(object):
                     tmp_res_data_this['name'] = init_api_do_mapping_for_dict(raw_obj_this, ['group_name'], str)
                     tmp_res_data_this['id'] = str(init_api_do_mapping_for_dict(raw_obj_this, ['group_id'], int))
                     tmp_res_data_this['memo'] = init_api_do_mapping_for_dict(raw_obj_this, ['group_memo'], str)
-                    tmp_res_data_this['member_count'] = init_api_do_mapping_for_dict(raw_obj_this, ['member_count'],
-                                                                                     int)
-                    tmp_res_data_this['max_member_count'] = init_api_do_mapping_for_dict(raw_obj_this,
-                                                                                         ['max_member_count'], int)
+                    tmp_res_data_this['member_count'] = init_api_do_mapping_for_dict(
+                        raw_obj_this, ['member_count'], int
+                    )
+                    tmp_res_data_this['max_member_count'] = init_api_do_mapping_for_dict(
+                        raw_obj_this, ['max_member_count'], int
+                    )
                     res_data['data'].append(tmp_res_data_this)
         return res_data
 
@@ -999,7 +1034,7 @@ class event_action(object):
         this_msg.data.no_cache = no_cache
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1008,11 +1043,12 @@ class event_action(object):
                 res_data['data']['user_id'] = str(init_api_do_mapping_for_dict(raw_obj, ['user_id'], int))
                 res_data['data']['group_id'] = str(init_api_do_mapping_for_dict(raw_obj, ['group_id'], int))
                 res_data['data']['times']['join_time'] = init_api_do_mapping_for_dict(raw_obj, ['join_time'], int)
-                res_data['data']['times']['last_sent_time'] = init_api_do_mapping_for_dict(raw_obj, ['last_sent_time'],
-                                                                                           int)
-                res_data['data']['times']['shut_up_timestamp'] = init_api_do_mapping_for_dict(raw_obj,
-                                                                                              ['shut_up_timestamp'],
-                                                                                              int)
+                res_data['data']['times']['last_sent_time'] = init_api_do_mapping_for_dict(
+                    raw_obj, ['last_sent_time'], int
+                )
+                res_data['data']['times']['shut_up_timestamp'] = init_api_do_mapping_for_dict(
+                    raw_obj, ['shut_up_timestamp'], int
+                )
                 res_data['data']['role'] = init_api_do_mapping_for_dict(raw_obj, ['role'], str)
                 res_data['data']['card'] = init_api_do_mapping_for_dict(raw_obj, ['card'], str)
                 res_data['data']['title'] = init_api_do_mapping_for_dict(raw_obj, ['title'], str)
@@ -1026,7 +1062,7 @@ class event_action(object):
         this_msg.data.group_id = int(group_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -1036,12 +1072,15 @@ class event_action(object):
                     tmp_res_data_this['id'] = str(init_api_do_mapping_for_dict(raw_obj_this, ['user_id'], int))
                     tmp_res_data_this['user_id'] = str(init_api_do_mapping_for_dict(raw_obj_this, ['user_id'], int))
                     tmp_res_data_this['group_id'] = str(init_api_do_mapping_for_dict(raw_obj_this, ['group_id'], int))
-                    tmp_res_data_this['times']['join_time'] = init_api_do_mapping_for_dict(raw_obj_this, ['join_time'],
-                                                                                           int)
-                    tmp_res_data_this['times']['last_sent_time'] = init_api_do_mapping_for_dict(raw_obj_this,
-                                                                                                ['last_sent_time'], int)
-                    tmp_res_data_this['times']['shut_up_timestamp'] = init_api_do_mapping_for_dict(raw_obj_this, [
-                        'shut_up_timestamp'], int)
+                    tmp_res_data_this['times']['join_time'] = init_api_do_mapping_for_dict(
+                        raw_obj_this, ['join_time'], int
+                    )
+                    tmp_res_data_this['times']['last_sent_time'] = init_api_do_mapping_for_dict(
+                        raw_obj_this, ['last_sent_time'], int
+                    )
+                    tmp_res_data_this['times']['shut_up_timestamp'] = init_api_do_mapping_for_dict(
+                        raw_obj_this, ['shut_up_timestamp'], int
+                    )
                     tmp_res_data_this['role'] = init_api_do_mapping_for_dict(raw_obj_this, ['role'], str)
                     tmp_res_data_this['card'] = init_api_do_mapping_for_dict(raw_obj_this, ['card'], str)
                     tmp_res_data_this['title'] = init_api_do_mapping_for_dict(raw_obj_this, ['title'], str)
@@ -1055,7 +1094,7 @@ class event_action(object):
         this_msg = api.can_send_image(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1069,7 +1108,7 @@ class event_action(object):
         this_msg = api.can_send_record(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1083,7 +1122,7 @@ class event_action(object):
         this_msg = api.get_status(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1137,7 +1176,7 @@ class event_action(object):
         this_msg = api.get_version_info(get_SDK_bot_info_from_Event(target_event))
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1167,7 +1206,7 @@ class event_action(object):
         this_msg.data.user_id = int(user_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1191,7 +1230,7 @@ class event_action(object):
         this_msg.data.group_id = int(group_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -1290,7 +1329,7 @@ class event_action(object):
         this_msg.data.group_id = int(group_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1312,7 +1351,7 @@ class event_action(object):
             this_msg.data.file_count = int(file_count)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1333,7 +1372,7 @@ class event_action(object):
             this_msg.data.file_count = int(file_count)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1351,7 +1390,7 @@ class event_action(object):
         this_msg.data.busid = int(busid)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1418,7 +1457,7 @@ class event_action(object):
         this_msg.data.group_id = int(group_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -1459,7 +1498,7 @@ class event_action(object):
             this_msg.data.group_id = int(group_id)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -1488,7 +1527,7 @@ class event_action(object):
         this_msg.data.count = int(count)
         this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, list):
                 res_data['active'] = True
@@ -1525,7 +1564,7 @@ class event_action(object):
             this_msg.data.count = int(count)
             this_msg.do_api(control_queue=control_queue)
         if this_msg.res is not None:
-            raw_obj = init_api_json(this_msg.res.text)
+            raw_obj = init_api(this_msg.res.body)
         if raw_obj is not None:
             if isinstance(raw_obj, dict):
                 res_data['active'] = True
@@ -1611,7 +1650,16 @@ class event_action(object):
                 this_msg.do_api(control_queue=control_queue)
 
 
-def init_api_json(raw_str):
+def init_api(raw: str | dict) -> dict:
+    res_data = None
+    if isinstance(raw, str):
+        res_data = init_api_json_str(raw)
+    elif isinstance(raw, dict):
+        res_data = init_api_json_obj(raw)
+    return res_data
+
+
+def init_api_json_str(raw_str: str) -> dict | None:
     res_data = None
     tmp_obj = None
     flag_is_active = False
@@ -1631,9 +1679,30 @@ def init_api_json(raw_str):
     if flag_is_active:
         if 'data' in tmp_obj:
             if isinstance(tmp_obj['data'], dict):
-                res_data = tmp_obj['data'].copy()
+                res_data = tmp_obj['data']
             elif isinstance(tmp_obj['data'], list):
-                res_data = tmp_obj['data'].copy()
+                res_data = tmp_obj['data']
+    return res_data
+
+
+def init_api_json_obj(raw_obj: dict) -> dict | None:
+    tmp_obj = raw_obj
+    res_data = None
+    flag_is_active = False
+    if 'status' in tmp_obj:
+        if isinstance(tmp_obj['status'], str):
+            if tmp_obj['status'] == 'ok':
+                flag_is_active = True
+    if 'retcode' in tmp_obj:
+        if isinstance(tmp_obj['retcode'], int):
+            if tmp_obj['retcode'] == 0:
+                flag_is_active = True
+    if flag_is_active:
+        if 'data' in tmp_obj:
+            if isinstance(tmp_obj['data'], dict):
+                res_data = tmp_obj['data']
+            elif isinstance(tmp_obj['data'], list):
+                res_data = tmp_obj['data']
     return res_data
 
 
@@ -2612,3 +2681,29 @@ class api(object):
             def __init__(self):
                 self.message_id = -1
                 self.emoji_id = -1
+
+
+def waitForResSet(echo: str, data):
+    if echo in gResReg:
+        gResReg[echo] = data
+
+
+def waitForResReady(echo: str):
+    gResReg[echo] = None
+
+
+def waitForRes(echo: str):
+    res = None
+    interval = 0.1
+    limit = 30
+    index_limit = int(limit / interval)
+    for i in range(index_limit):
+        time.sleep(interval)
+        if (
+            echo in gResReg
+            and gResReg[echo] is not None
+        ):
+            res = gResReg[echo]
+            gResReg.pop(echo)
+            break
+    return res
