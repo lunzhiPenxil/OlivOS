@@ -199,7 +199,7 @@ class api_templet(object):
                 data = self.do_dump()
                 waitForResReady(self.echo)
                 self.res = send_ws_event(
-                    type='onebotV11_link',
+                    type="onebotV11_link",
                     hash=bot_hash,
                     data=data,
                     control_queue=control_queue

@@ -76,14 +76,14 @@ accountTypeList = [
 ]
 
 accountTypeMappingList = {
+    'onebotV11/正向WS': ['qq', 'onebot', 'default', 'True', 'websocket'],
+    'onebotV11/反向WS': ['qq', 'onebot', 'default', 'False', 'websocket_host'],
     'onebotV11/Http': ['qq', 'onebot', 'default', 'False', 'post'],
     'onebotV11/Http/NapCat': ['qq', 'onebot', 'napcat_default', 'False', 'post'],
     'onebotV11/Http/LLOneBot': ['qq', 'onebot', 'llonebot_default', 'False', 'post'],
     'onebotV11/Http/Lagrange': ['qq', 'onebot', 'lagrange_default', 'False', 'post'],
     'onebotV11/Http/Shamrock': ['qq', 'onebot', 'shamrock_default', 'False', 'post'],
     'onebotV11/Http/消息段': ['qq', 'onebot', 'array_default', 'False', 'post'],
-    'onebotV11/正向WS': ['qq', 'onebot', 'default', 'False', 'websocket'],
-    'onebotV11/反向WS': ['qq', 'onebot', 'default', 'False', 'websocket_host'],
     'onebotV12/正向WS': ['qq', 'onebot', 'onebotV12', 'False', 'websocket'],
     'RED协议': ['qq', 'onebot', 'red', 'False', 'websocket'],
     'OPQBot/正向WS': ['qq', 'onebot', 'opqbot_default', 'False', 'websocket'],

@@ -26,8 +26,6 @@ import OlivOS
 
 modelName = 'onebotV11LinkServer'
 
-RETRY_INTERVAL = 4
-
 gCheckList = [
     'default',
 ]
@@ -40,6 +38,39 @@ class ServerConf:
     port: int
     token: str
     route: str
+
+    @classmethod
+    def init_conf_from_post_info(cls, post_info: OlivOS.API.bot_info_T.post_info_T):
+        """从post_info中提取配置信息"""
+        # 考虑到OlivOS当前设计并没有区分URL与HOST+PORT的概念
+        # 我们暂且废用了post_info的PORT字段，而通过HOST字段解析完整的URL
+        tmp_host = post_info.host
+        parsed = urlparse(tmp_host)
+        scheme = parsed.scheme
+        host = parsed.hostname
+        port = parsed.port
+        route = parsed.path
+        url = f"{scheme}://{host}:{port}{route}"
+        token = post_info.access_token
+        if token is None:
+            params = parse_qs(parsed.query)
+            token = params.get('access_token', [None])[0]
+        return cls(url=url, host=host, port=port, token=token, route=route)
+
+
+@dataclass
+class ExtraConf:
+    queue_max_size: int = 512
+    queue_timeout: int = 30
+    retry_interval: int = 4
+
+    @classmethod
+    def init_extra_conf_from_extends(cls, extends: dict):
+        return cls(
+            queue_max_size=extends.get('queue_max_size', 512),
+            queue_timeout=extends.get('queue_timeout', 30),
+            retry_interval=extends.get('retry_interval', 4)
+        )
 
 
 class server(OlivOS.API.Proc_templet):
@@ -66,11 +97,11 @@ class server(OlivOS.API.Proc_templet):
             tx_queue=tx_queue,
             logger_proc=logger_proc
         )
-        self.conf: ServerConf = init_conf_from_post_info(self.post_info)
         self.bot_info: OlivOS.API.bot_info_T = bot_info
         self.ws_conn: websockets.ClientConnection = None
         self.async_rx_queue: asyncio.Queue = None
-        pass
+        self.conf: ServerConf = ServerConf.init_conf_from_post_info(self.bot_info.post_info)
+        self.extra_conf: ExtraConf = ExtraConf.init_extra_conf_from_extends(self.bot_info.extends)
 
     def start(self) -> threading.Thread:
         proc_this = threading.Thread(
@@ -87,7 +118,7 @@ class server(OlivOS.API.Proc_templet):
         return proc_this
 
     async def run(self):
-        self.async_rx_queue = asyncio.Queue(maxsize=512)
+        self.async_rx_queue = asyncio.Queue(maxsize=self.extra_conf.queue_max_size)
         loop = asyncio.get_event_loop()
         bridge_thread = threading.Thread(
             target=self.__bridge_queue,
@@ -98,40 +129,47 @@ class server(OlivOS.API.Proc_templet):
         bridge_thread.start()
 
         while True:
-            self.__link_to_server()
-            self.on_open()
-            rx_task = asyncio.create_task(self.rx_link())
-            tx_task = asyncio.create_task(self.tx_link())
-            done, pending = await asyncio.wait(
-                [rx_task, tx_task],
-                return_when=asyncio.FIRST_COMPLETED,
-            )
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                except Exception as e:
-                    self.on_error(e)
-            self.ws_conn.close()
-            self.on_close()
-            await asyncio.sleep(RETRY_INTERVAL)
+            done = []
+            pending = []
+            try:
+                await self.__link_to_server()
+                if self.ws_conn is None:
+                    await asyncio.sleep(self.extra_conf.retry_interval)
+                    continue
+                self.on_open()
+                rx_task = asyncio.create_task(self.rx_link())
+                tx_task = asyncio.create_task(self.tx_link())
+                done, pending = await asyncio.wait(
+                    [rx_task, tx_task],
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+            except Exception as e:
+                self.on_error(e)
+            finally:
+                for task in pending:
+                    task.cancel()
+                if self.ws_conn is not None:
+                    await self.ws_conn.close()
+                self.ws_conn = None
+
+                self.on_close()
+                await asyncio.sleep(self.extra_conf.retry_interval)
 
     async def rx_link(self):
-        async for msg in self.ws_conn:
+        while True:
             try:
+                raw = await self.ws_conn.recv()
                 extra_info = {
                     'id': self.bot_info.id,
                     'token': self.conf.token,
                     'type': 'websocket'
                 }
-                sdk_event = OlivOS.onebotSDK.event(msg, extra_info)
+                sdk_event = OlivOS.onebotSDK.event(raw, extra_info)
                 if not sdk_event.active:
                     continue
                 tx_packet_data = OlivOS.pluginAPI.shallow.rx_packet(sdk_event)
                 self.Proc_info.tx_queue.put(tx_packet_data)
-            except websockets.ConnectionClosed:
+            except (websockets.ConnectionClosed, asyncio.CancelledError):
                 break
             except Exception as e:
                 self.on_error(e)
@@ -144,22 +182,29 @@ class server(OlivOS.API.Proc_templet):
                 if data_part.get('action') == 'send':
                     payload = data_part.get('data')
                     if payload is not None:
-                        payload = json.dumps(payload)
                         await self.ws_conn.send(payload)
-            except websockets.ConnectionClosed:
+            except (websockets.ConnectionClosed, asyncio.CancelledError):
                 break
             except Exception as e:
                 self.on_error(e)
             finally:
                 self.async_rx_queue.task_done()
 
-    def __link_to_server(self) -> websockets.ClientConnection:
+    async def __link_to_server(self):
         url = self.conf.url
         headers = {
             'Authorization': f'Bearer {self.conf.token}',
             'Content-Type': 'application/json'
         }
-        self.ws_conn = websockets.connect(url, extra_headers=headers)
+        try:
+            connection = websockets.connect(url, additional_headers=headers)
+            self.ws_conn = await connection.__aenter__()
+        except TypeError:
+            # 你猜为什么呢？
+            connection = websockets.connect(url, extra_headers=headers)
+            self.ws_conn = await connection.__aenter__()
+        except ConnectionRefusedError:
+            pass
 
     def __bridge_queue(self, loop: asyncio.AbstractEventLoop):
         while True:
@@ -214,21 +259,3 @@ class server(OlivOS.API.Proc_templet):
                 modelName
             )
         )
-
-
-def init_conf_from_post_info(post_info: OlivOS.API.post_info_T) -> ServerConf:
-    """从post_info中提取配置信息"""
-    # 考虑到OlivOS当前设计并没有区分URL与HOST+PORT的概念
-    # 我们暂且废用了post_info的PORT字段，而通过HOST字段解析完整的URL
-    tmp_host = post_info.host
-    parsed = urlparse(tmp_host)
-    scheme = parsed.scheme
-    host = parsed.hostname
-    port = parsed.port
-    route = parsed.path
-    url = f"{scheme}://{host}:{port}{route}"
-    token = post_info.access_token
-    if token is None:
-        params = parse_qs(parsed.query)
-        token = params.get('access_token', [None])[0]
-    return ServerConf(url=url, host=host, port=port, token=token, route=route)
