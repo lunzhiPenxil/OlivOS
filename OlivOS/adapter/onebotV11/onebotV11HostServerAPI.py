@@ -66,7 +66,7 @@ class server(OlivOS.API.Proc_templet):
         OlivOS.API.Proc_templet.__init__(
             self,
             Proc_name=Proc_name,
-            Proc_type='onebotV11_link',
+            Proc_type='onebotV11_host',
             scan_interval=scan_interval,
             dead_interval=dead_interval,
             rx_queue=rx_queue,
