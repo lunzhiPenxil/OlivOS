@@ -262,7 +262,6 @@ class server(OlivOS.API.Proc_templet):
                 )
             )
             self.on_lost()
-            return
 
         loop = asyncio.get_running_loop()
         self.async_rx_queue = asyncio.Queue(maxsize=512)
@@ -358,11 +357,7 @@ class server(OlivOS.API.Proc_templet):
 def is_free_port(host: str, port: int) -> bool:
     """检查端口是否可用"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.bind((host, port))
-            return True
-        except OSError:
-            return False
+        return s.connect_ex((host, port)) != 0
 
 
 def get_free_port(host: str) -> int:
