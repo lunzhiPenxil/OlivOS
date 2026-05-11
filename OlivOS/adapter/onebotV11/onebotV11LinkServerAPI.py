@@ -18,8 +18,8 @@ import asyncio
 import threading
 import traceback
 import websockets
-from urllib.parse import urlparse, parse_qs
 from dataclasses import dataclass
+from urllib.parse import urlparse, parse_qs
 
 import OlivOS
 
@@ -32,6 +32,13 @@ gCheckList = [
 
 @dataclass
 class ServerConf:
+    """服务器配置类
+    url: str      连接URL
+    host: str     连接HOST
+    port: int     连接PORT
+    token: str    连接TOKEN
+    route: str    连接路由
+    """
     url: str
     host: str
     port: int
@@ -40,7 +47,7 @@ class ServerConf:
 
     @classmethod
     def init_conf_from_post_info(cls, post_info: OlivOS.API.bot_info_T.post_info_T):
-        """从post_info中提取配置信息"""
+        """从bot_info.post_info中提取配置信息"""
         # 考虑到OlivOS当前设计并没有区分URL与HOST+PORT的概念
         # 我们暂且废用了post_info的PORT字段，而通过HOST字段解析完整的URL
         tmp_host = post_info.host
@@ -59,21 +66,40 @@ class ServerConf:
 
 @dataclass
 class ExtraConf:
+    """额外配置项
+    queue_max_size: int = 512       最大队列大小
+    queue_timeout: int = 30         队列超时时间
+    retry_interval: int = 4         重试间隔
+    retry_interval_to_link: int = 1 重试间隔，但是尝试连接时
+    """
     queue_max_size: int = 512
     queue_timeout: int = 30
     retry_interval: int = 4
+    retry_interval_to_link: int = 1
 
     @classmethod
     def init_extra_conf_from_extends(cls, extends: dict):
+        """从bot_info.extends中提取配置信息"""
         return cls(
             queue_max_size=extends.get('queue_max_size', 512),
             queue_timeout=extends.get('queue_timeout', 30),
-            retry_interval=extends.get('retry_interval', 4)
+            retry_interval=extends.get('retry_interval', 4),
+            retry_interval_to_link=extends.get('retry_interval_to_link', 1)
         )
 
 
 class server(OlivOS.API.Proc_templet):
-    """OneBot11 正向WebSocket 服务器"""
+    """OneBot11 正向WebSocket 服务器
+
+    Args:
+    - Proc_name (str): 服务器名称
+    - scan_interval (float): 扫描间隔
+    - dead_interval (float): 枪毙间隔
+    - rx_queue (asyncio.Queue): 接收队列
+    - tx_queue (asyncio.Queue): 发送队列
+    - logger_proc (OlivOS.API.Proc_templet): 日志记录器
+    - debug_mode (bool): 是否开启调试模式
+    """
 
     def __init__(
         self,
@@ -101,8 +127,10 @@ class server(OlivOS.API.Proc_templet):
         self.async_rx_queue: asyncio.Queue = None
         self.conf: ServerConf = ServerConf.init_conf_from_post_info(self.bot_info.post_info)
         self.extra_conf: ExtraConf = ExtraConf.init_extra_conf_from_extends(self.bot_info.extends)
+        self.debug_mode = debug_mode
 
     def start(self) -> threading.Thread:
+        """启动入口"""
         proc_this = threading.Thread(
             target=lambda: asyncio.run(self.run()),
             name=self.Proc_name
@@ -113,10 +141,12 @@ class server(OlivOS.API.Proc_templet):
         return proc_this
 
     def start_unity(self, mode='threading') -> threading.Thread:
+        """Unity启动入口, mode参数无实际意义，详情见OlivOS.onebotV11HostServer.start_unity"""
         proc_this = self.start()
         return proc_this
 
     async def run(self):
+        """主运行循环"""
         self.async_rx_queue = asyncio.Queue(maxsize=self.extra_conf.queue_max_size)
         loop = asyncio.get_event_loop()
         bridge_thread = threading.Thread(
@@ -133,7 +163,7 @@ class server(OlivOS.API.Proc_templet):
             try:
                 await self.__link_to_server()
                 if self.ws_conn is None:
-                    await asyncio.sleep(self.extra_conf.retry_interval)
+                    await asyncio.sleep(self.extra_conf.retry_interval_to_link)
                     continue
                 self.on_open()
                 rx_task = asyncio.create_task(self.rx_link())
@@ -149,12 +179,13 @@ class server(OlivOS.API.Proc_templet):
                     task.cancel()
                 if self.ws_conn is not None:
                     await self.ws_conn.close()
+                    self.on_close()
                 self.ws_conn = None
 
-                self.on_close()
                 await asyncio.sleep(self.extra_conf.retry_interval)
 
     async def rx_link(self):
+        """WS接收逻辑"""
         while True:
             try:
                 raw = await self.ws_conn.recv()
@@ -168,12 +199,17 @@ class server(OlivOS.API.Proc_templet):
                     continue
                 tx_packet_data = OlivOS.pluginAPI.shallow.rx_packet(sdk_event)
                 self.Proc_info.tx_queue.put(tx_packet_data)
-            except (websockets.ConnectionClosed, asyncio.CancelledError):
+            except (websockets.ConnectionClosedOK, asyncio.CancelledError):
+                # 被动关闭/主动关闭
                 break
+            except websockets.ConnectionClosedError:
+                # 非预期关闭
+                self.on_lost()
             except Exception as e:
                 self.on_error(e)
 
     async def tx_link(self):
+        """WS发送逻辑"""
         while True:
             rx_packet_data: OlivOS.API.Control.packet = await self.async_rx_queue.get()
             try:
@@ -182,14 +218,19 @@ class server(OlivOS.API.Proc_templet):
                     payload = data_part.get('data')
                     if payload is not None:
                         await self.ws_conn.send(payload)
-            except (websockets.ConnectionClosed, asyncio.CancelledError):
+            except (websockets.ConnectionClosedOK, asyncio.CancelledError):
+                # 被动关闭/主动关闭
                 break
+            except websockets.ConnectionClosedError:
+                # 非预期关闭
+                self.on_lost()
             except Exception as e:
                 self.on_error(e)
             finally:
                 self.async_rx_queue.task_done()
 
     async def __link_to_server(self):
+        """WS连接逻辑"""
         url = self.conf.url
         headers = {
             'Authorization': f'Bearer {self.conf.token}',
@@ -206,6 +247,9 @@ class server(OlivOS.API.Proc_templet):
             pass
 
     def __bridge_queue(self, loop: asyncio.AbstractEventLoop):
+        """队列桥接逻辑
+        接收队列是multiprocessing.Queue, 发送队列是asyncio.Queue, 需要进行桥接以优化性能
+        """
         while True:
             try:
                 rx_packet_data = self.Proc_info.rx_queue.get()
@@ -229,10 +273,18 @@ class server(OlivOS.API.Proc_templet):
     def on_close(self) -> None:
         """连接关闭时的处理"""
         self.log(
-            0,
+            2,
             OlivOS.L10NAPI.getTrans(
                 'OlivOS onebotV11 link server [{0}] websocket link close',
                 [self.Proc_name],
+                modelName
+            )
+        )
+        self.log(
+            2,
+            OlivOS.L10NAPI.getTrans(
+                'OlivOS onebotV11 link server [{0}] websocket link will retry in {1}s',
+                [self.Proc_name, self.extra_conf.retry_interval],
                 modelName
             )
         )
@@ -240,7 +292,7 @@ class server(OlivOS.API.Proc_templet):
     def on_lost(self) -> None:
         """连接丢失时的处理"""
         self.log(
-            0,
+            3,
             OlivOS.L10NAPI.getTrans(
                 'OlivOS onebotV11 link server [{0}] websocket link lost',
                 [self.Proc_name],
