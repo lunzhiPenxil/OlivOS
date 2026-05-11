@@ -357,7 +357,11 @@ class server(OlivOS.API.Proc_templet):
 def is_free_port(host: str, port: int) -> bool:
     """检查端口是否可用"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex((host, port)) != 0
+        try:
+            s.bind((host, port))
+            return True
+        except socket.error:
+            return False
 
 
 def get_free_port(host: str) -> int:
