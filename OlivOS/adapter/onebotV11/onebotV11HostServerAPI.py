@@ -262,6 +262,7 @@ class server(OlivOS.API.Proc_templet):
                 )
             )
             self.on_lost()
+            return
 
         loop = asyncio.get_running_loop()
         self.async_rx_queue = asyncio.Queue(maxsize=512)
@@ -361,7 +362,7 @@ def is_free_port(host: str, port: int) -> bool:
         try:
             s.bind((host, port))
             return True
-        except socket.error:
+        except (socket.error, OSError):
             return False
 
 
