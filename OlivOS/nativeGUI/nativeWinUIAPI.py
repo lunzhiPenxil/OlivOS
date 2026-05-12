@@ -2900,18 +2900,8 @@ class OlivOSTerminalUI(object):
             )
 
         self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('TIME', 'LEVEL', 'DATA')
-        self.UIObject['tree'].column('TIME', width=140)
-        self.UIObject['tree'].column('LEVEL', width=50)
-        # self.UIObject['tree'].column('SIG_01', width = 80)
-        # self.UIObject['tree'].column('SIG_02', width = 80)
-        # self.UIObject['tree'].column('SIG_03', width = 80)
-        self.UIObject['tree'].column('DATA', width=710 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('TIME', text='时间')
-        self.UIObject['tree'].heading('LEVEL', text='等级')
-        # self.UIObject['tree'].heading('SIG_01', text = '')
-        # self.UIObject['tree'].heading('SIG_02', text = '')
-        # self.UIObject['tree'].heading('SIG_03', text = '')
+        self.UIObject['tree']['columns'] = ('DATA',)
+        self.UIObject['tree'].column('DATA', width=710)
         self.UIObject['tree'].heading('DATA', text='日志')
         self.UIObject['tree']['selectmode'] = 'browse'
         self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
@@ -3175,9 +3165,10 @@ class OlivOSTerminalUI(object):
                         tkinter.END,
                         text=res_data,
                         values=(
-                            str(datetime.datetime.fromtimestamp(int(data_raw['log_time']))),
-                            log_level,
-                            data_str
+                            (
+                                f"{str(datetime.datetime.fromtimestamp(int(data_raw['log_time'])))}"
+                                f" - {log_level} - {data_str}"
+                            ),
                         ),
                         tag=log_level
                     )
