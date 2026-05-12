@@ -42,6 +42,7 @@ from .core.web import webTool
 from . import thirdPartyModule
 
 from . import adapter
+from .adapter.onebotV11 import onebotV11LinkServerAPI
 from .adapter.onebotV11 import onebotV11HostServerAPI
 from .adapter.onebotV11 import flaskServerAPI
 from .adapter.onebotV12 import onebotV12SDK

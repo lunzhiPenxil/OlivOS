@@ -642,6 +642,11 @@ class TreeEditUI(object):
                 # 后半位于此处
                 'type_mapping_list': {},
                 'type_mapping_list_Entry_slot': {
+                    'onebotV11/正向WS': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
                     'onebotV11/反向WS': {
                         '账号': 'edit_root_Entry_ID',
                         '地址': 'edit_root_Entry_Server_host',
@@ -962,6 +967,18 @@ class TreeEditUI(object):
                     tmp_host = 'ws://127.0.0.1'
                 if tmp_port == '':
                     tmp_port = '58001'
+                if tmp_access_token == '':
+                    tmp_access_token = 'NONEED'
+            if (
+                tmp_platform_platform == 'qq'
+                and tmp_platform_sdk == 'onebot'
+                and tmp_platform_model in OlivOS.onebotV11LinkServerAPI.gCheckList
+                and tmp_server_auto == 'True'
+            ):
+                if tmp_host == '':
+                    tmp_host = 'ws://127.0.0.1'
+                if tmp_port == '':
+                    tmp_port = '0'
                 if tmp_access_token == '':
                     tmp_access_token = 'NONEED'
             if (
