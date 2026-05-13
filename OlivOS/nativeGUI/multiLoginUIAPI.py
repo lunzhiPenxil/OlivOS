@@ -647,7 +647,51 @@ class TreeEditUI(object):
                         '地址': 'edit_root_Entry_Server_host',
                         'TOKEN': 'edit_root_Entry_Server_access_token',
                     },
+                    'onebotV11/正向WS/NapCat': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/正向WS/LLOneBot': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/正向WS/Lagrange': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/正向WS/Shamrock': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
                     'onebotV11/反向WS': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        '端口': 'edit_root_Entry_Server_port',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/反向WS/NapCat': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        '端口': 'edit_root_Entry_Server_port',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/反向WS/LLOneBot': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        '端口': 'edit_root_Entry_Server_port',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/反向WS/Lagrange': {
+                        '账号': 'edit_root_Entry_ID',
+                        '地址': 'edit_root_Entry_Server_host',
+                        '端口': 'edit_root_Entry_Server_port',
+                        'TOKEN': 'edit_root_Entry_Server_access_token',
+                    },
+                    'onebotV11/反向WS/Shamrock': {
                         '账号': 'edit_root_Entry_ID',
                         '地址': 'edit_root_Entry_Server_host',
                         '端口': 'edit_root_Entry_Server_port',
@@ -678,12 +722,6 @@ class TreeEditUI(object):
                         'TOKEN': 'edit_root_Entry_Server_access_token',
                     },
                     'onebotV11/Http/Shamrock': {
-                        '账号': 'edit_root_Entry_ID',
-                        '地址': 'edit_root_Entry_Server_host',
-                        '端口': 'edit_root_Entry_Server_port',
-                        'TOKEN': 'edit_root_Entry_Server_access_token',
-                    },
-                    'onebotV11/Http/消息段': {
                         '账号': 'edit_root_Entry_ID',
                         '地址': 'edit_root_Entry_Server_host',
                         '端口': 'edit_root_Entry_Server_port',
