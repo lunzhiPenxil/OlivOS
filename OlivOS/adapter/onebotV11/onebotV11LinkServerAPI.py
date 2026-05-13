@@ -27,6 +27,10 @@ modelName = 'onebotV11LinkServer'
 
 gCheckList = [
     'default',
+    'napcat_default',
+    'llonebot_default',
+    'lagrange_default',
+    'shamrock_default',
 ]
 
 

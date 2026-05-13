@@ -30,6 +30,10 @@ modelName = 'onebotV11HostServerAPI'
 
 gCheckList = [
     'default',
+    'napcat_default',
+    'llonebot_default',
+    'lagrange_default',
+    'shamrock_default',
 ]
 
 DEFAULT_SCAN_INTERVAL = 0.001
