@@ -312,11 +312,9 @@ class event(object):
                 self.base_info['self_id'] = self.json['self_id']
                 self.base_info['post_type'] = self.json['post_type']
             if extras is not None:
-                # 兼容新的websocket驱动器(onebotV11HostServer)
+                # 兼容新的websocket驱动器(onebotV11HostServer/onebotV11LinkServer)
                 if 'id' in extras:
                     self.base_info['self_id'] = extras['id']
-                if 'token' in extras:
-                    self.base_info['token'] = extras['token']
                 if 'type' in extras:
                     self.base_info['server_type'] = extras['type']
 
