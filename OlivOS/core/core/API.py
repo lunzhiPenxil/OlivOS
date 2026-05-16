@@ -1252,6 +1252,9 @@ class Event(object):
 
         用于获取合并转发消息内容
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             message_id: 合并转发消息ID
 
@@ -1282,6 +1285,9 @@ class Event(object):
 
         用于发送群合并转发消息
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             messages: 消息节点列表
@@ -1307,6 +1313,9 @@ class Event(object):
         """发送私聊合并转发消息
 
         用于发送私聊合并转发消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
 
         Args:
             user_id: 用户ID
@@ -1334,6 +1343,9 @@ class Event(object):
 
         用于设置精华消息
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             message_id: 消息ID
         """
@@ -1358,6 +1370,9 @@ class Event(object):
         """移出精华消息
 
         用于移出精华消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
 
         Args:
             message_id: 消息ID
@@ -1412,6 +1427,9 @@ class Event(object):
 
         用于群打卡
 
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+
         Args:
             group_id: 群ID
         """
@@ -1438,6 +1456,9 @@ class Event(object):
         """获取精华消息列表
 
         用于获取群精华消息列表
+
+        支持平台：`OneBotV11`
+        支持协议：Lagrange、NapCat、LLOneBot
 
         Args:
             group_id: 群ID
@@ -1478,6 +1499,28 @@ class Event(object):
         return res_data
 
     def get_group_ignore_add_request(self, group_id: 'str|int' = None, flag_log: bool = True, remote: bool = False):
+        """获取已过滤的加群通知
+
+        用于获取已过滤的加群通知
+
+        支持平台：OneBotV11
+        支持协议：NapCat（LLOneBot请使用`get_group_system_msg`）
+
+        Args:
+            group_id: 群ID（可选，用于筛选特定群） (default: None)
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - request_id (int): 请求ID
+                - invitor_uin (int): 邀请者QQ号
+                - invitor_nick (str): 邀请者昵称
+                - group_id (int): 群号
+                - group_name (str): 群名称
+                - checked (bool): 是否已处理
+                - actor (int): 操作者QQ号
+                - requester_nick (str): 请求者昵称
+                - message (str): 请求消息
+        """
         if remote:
             pass
         else:
@@ -1498,6 +1541,29 @@ class Event(object):
         return res_data
 
     def get_doubt_friends_add_request(self, count: int = 50, flag_log: bool = True, remote: bool = False):
+        """获取被过滤的好友请求
+
+        用于获取被过滤的好友请求
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+
+        Args:
+            count: 获取数量 (default: 50)
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - flag (str): 请求标识
+                - uin (str): 请求者QQ号
+                - nick (str): 请求者昵称
+                - source (str): 请求来源
+                - reason (str): 验证消息
+                - msg (str): 附加消息
+                - group_code (str): 来源群号
+                - time (str): 请求时间
+                - type (str): 请求类型
+                - extra (dict): 平台特有扩展数据
+        """
         if remote:
             pass
         else:
@@ -1521,6 +1587,18 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """处理被过滤的好友请求
+
+        用于处理被过滤的好友请求
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+        - LLOneBot 不使用`approve`参数
+
+        Args:
+            flag: 加好友请求的`flag`（需下事件的数据中获得）
+            approve: 是否同意请求 (default: True)
+        """
         if remote:
             pass
         else:
@@ -1541,6 +1619,23 @@ class Event(object):
         return res_data
 
     def get_group_system_msg(self, count: int = 50, flag_log: bool = True, remote: bool = False):
+        """获取群系统消息
+
+        用于获取群系统消息（包括加群申请和邀请）
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+        - LLOneBot 使用 GET 方法，不支持 count 参数
+        - NapCat 使用 POST 方法，支持 count 参数
+        - LLOneBot 的已过滤请求也在此接口查看
+
+        Args:
+            count: 获取数量（仅NapCat支持） (default: 50)
+
+        Returns:
+            invited_requests (list): 邀请加群申请列表，Defaults to []
+            join_requests (list): 加群申请列表，Defaults to []
+        """
         if remote:
             pass
         else:
@@ -1564,6 +1659,9 @@ class Event(object):
         """群戳一戳
 
         用于在群内戳一戳某人
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
 
         Args:
             group_id: 群ID
@@ -1592,6 +1690,11 @@ class Event(object):
         """获取群公告
 
         用于获取群公告列表
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+        - NapCat/Lagrange: notice_id 为字符串类型，extra.notice_id_type = 'string'
+        - 其他平台: notice_id 为整数类型，extra.notice_id_type = 'int'
 
         Args:
             group_id: 群ID
@@ -1633,6 +1736,10 @@ class Event(object):
 
         用于发送群公告
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+        - NapCat具有额外参数kwargs
+
         Args:
             group_id: 群ID
             content: 公告内容
@@ -1666,6 +1773,9 @@ class Event(object):
 
         用于删除群公告
 
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             notice_id: 公告ID
@@ -1693,6 +1803,9 @@ class Event(object):
         """好友戳一戳
 
         用于戳一戳好友
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
 
         Args:
             user_id: 用户ID
@@ -2689,6 +2802,9 @@ class Event(object):
 
         用于上传群文件
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             file: 本地文件路径
@@ -2718,6 +2834,9 @@ class Event(object):
 
         用于删除群文件
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             file_id: 文件ID
@@ -2746,6 +2865,9 @@ class Event(object):
 
         用于创建群文件夹
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             name: 文件夹名称
@@ -2772,6 +2894,9 @@ class Event(object):
         """删除群文件夹
 
         用于删除群文件夹
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
 
         Args:
             group_id: 群ID
@@ -2800,6 +2925,9 @@ class Event(object):
         """获取群文件系统信息
 
         用于获取群文件系统信息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
 
         Args:
             group_id: 群ID
@@ -2840,6 +2968,9 @@ class Event(object):
         """获取群根目录文件列表
 
         用于获取群根目录文件列表
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot（file_count参数仅NapCat支持）
 
         Args:
             group_id: 群ID
@@ -2883,6 +3014,9 @@ class Event(object):
 
         用于获取群子目录文件列表
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot（file_count参数仅NapCat支持）
+
         Args:
             group_id: 群ID
             folder_id: 文件夹ID
@@ -2919,6 +3053,9 @@ class Event(object):
 
         用于获取群文件下载链接
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             group_id: 群ID
             file_id: 文件ID
@@ -2952,6 +3089,9 @@ class Event(object):
 
         用于上传私聊文件
 
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
         Args:
             user_id: 用户ID
             file: 本地文件路径
@@ -2982,6 +3122,9 @@ class Event(object):
         """重命名群文件夹
 
         用于重命名群文件夹
+
+        支持平台：OneBotV11
+        支持协议：LLOneBot、Lagrange
 
         Args:
             group_id: 群ID
@@ -3020,6 +3163,9 @@ class Event(object):
 
         用于重命名群文件
 
+        支持平台：OneBotV11
+        支持协议：NapCat
+
         Args:
             group_id: 群ID
             file_id: 文件ID
@@ -3047,6 +3193,9 @@ class Event(object):
         """群文件转永久
 
         用于将群文件转为永久保存
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
 
         Args:
             group_id: 群ID
@@ -3079,6 +3228,9 @@ class Event(object):
         """消息表情回应
 
         用于给消息添加或取消表情回应，统合了所有主流协议的接口实现
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
         - Lagrange 平台必须提供 group_id 参数，使用 set_group_reaction 接口
         - NapCat 使用 set_msg_emoji_like 接口，emoji_id为整数
         - LLOneBot 根据is_set使用 set_msg_emoji_like 或 unset_msg_emoji_like 接口
