@@ -43,25 +43,48 @@ QUEUE_TIMEOUT = 0.1
 
 @dataclass
 class ServerConf:
+    """服务器配置类
+
+    Attributes:
+        url (str): 连接URL
+        host (str): 连接HOST
+        port (int): 连接PORT
+        token (str): 连接TOKEN
+        route (str): 连接路由
+    """
     host: str
     port: int
     token: str
-    type: str
+    route: str
+
+    @classmethod
+    def init_conf_from_post_info(cls, post_info: OlivOS.API.bot_info_T.post_info_T):
+        """从bot_info.post_info中提取配置信息
+
+        Args:
+            post_info (OlivOS.API.bot_info_T.post_info_T): 通信相关的信息结构体
+        """
+        host = post_info.host.strip('ws://').strip('wss://')
+        port = post_info.port
+        token = post_info.access_token
+        route = None
+        return cls(host=host, port=port, token=token, route=route)
 
 
 class server(OlivOS.API.Proc_templet):
     """OneBot11 反向WebSocket 服务器
 
-    Args:
-    - Proc_name: 进程名称
-    - scan_interval: 扫描间隔,单位秒,默认为0.001s
-    - dead_interval: 枪毙间隔,单位秒,默认为1s
-    - rx_queue: 接收队列,默认为None
-    - tx_queue: 发送队列,默认为None
-    - control_queue: 控制队列,默认为None
-    - logger_proc: 日志进程,用于记录日志,默认为None
-    - debug_mode: 调试模式,默认为False
-    - bot_info_dict: 机器人信息字典,包含host、port、access_token等信息,默认为None
+    Attributes:
+        Proc_name (str): 服务器进程名称
+        scan_interval (float): 扫描间隔
+        dead_interval (float): 枪毙间隔
+        rx_queue (multiprocessing.Queue): 接收队列
+        tx_queue (multiprocessing.Queue): 发送队列
+        logger_proc (OlivOS.API.Proc_templet): 日志记录器
+        debug_mode (bool): 是否开启调试模式
+        bot_info (OlivOS.API.bot_info_T): 机器人信息
+        conf (ServerConf): 服务器配置
+        async_rx_queue (asyncio.Queue): 异步接收队列
     """
 
     def __init__(
@@ -76,6 +99,18 @@ class server(OlivOS.API.Proc_templet):
         debug_mode=False,
         bot_info_dict=None,
     ) -> None:
+        """构造函数
+
+        Args:
+            Proc_name (str): 服务器进程名称
+            scan_interval (float): 扫描间隔
+            dead_interval (float): 枪毙间隔
+            rx_queue (multiprocessing.Queue): 接收队列
+            tx_queue (multiprocessing.Queue): 发送队列
+            logger_proc (OlivOS.API.Proc_templet): 日志记录器
+            debug_mode (bool): 是否开启调试模式
+            bot_info_dict (OlivOS.API.bot_info_T): 机器人信息
+        """
         OlivOS.API.Proc_templet.__init__(
             self,
             Proc_name=Proc_name,
@@ -88,26 +123,17 @@ class server(OlivOS.API.Proc_templet):
             logger_proc=logger_proc
         )
         self.debug_mode = debug_mode
-        tmp_host = bot_info_dict.post_info.host
-        if tmp_host.startswith('ws://') or tmp_host.startswith('wss://'):
-            tmp_host = tmp_host.split('://', 1)[1]
-        tmp_port = bot_info_dict.post_info.port
-        tmp_token = bot_info_dict.post_info.access_token
-        tmp_type = bot_info_dict.post_info.type
-        self.conf = ServerConf(
-            host=tmp_host,
-            port=tmp_port,
-            token=tmp_token,
-            type=tmp_type
-        )
-        self.bot_info = bot_info_dict   # 其实是个bot_info_T对象
+        self.bot_info = bot_info_dict
+        self.conf = ServerConf.init_conf_from_post_info(self.bot_info.post_info)
         self.async_rx_queue = None
 
     def start(self) -> threading.Thread:
-        """重写自基类的start方法,强制使用线程来运行事件循环
+        """启动入口
+
+        重写自基类的start方法,强制使用线程来运行事件循环
 
         Returns:
-        - threading.Thread: 运行事件循环的线程对象
+            threading.Thread: 运行事件循环的线程对象
         """
         proc_this = threading.Thread(
             target=lambda: asyncio.run(self.run()),
@@ -119,24 +145,27 @@ class server(OlivOS.API.Proc_templet):
         return proc_this
 
     def start_unity(self, mode: str = 'threading') -> threading.Thread:
-        """重写自基类的start_unity方法,强制使用线程来运行事件循环
+        """Unity启动入口
 
+        重写自基类的start_unity方法,强制使用线程来运行事件循环
         OlivOS是基于多线程/多进程设计的,事件循环必须在独立线程中运行,因此不支持其他模式
 
         Args:
-        - mode: 启动模式,默认为'threading',目前仅支持线程,且无法根据传入值切换
+            mode: 启动模式,默认为'threading',目前仅支持线程,且无法根据传入值切换
 
         Returns:
-        - threading.Thread: 运行事件循环的线程对象
+            threading.Thread: 运行事件循环的线程对象
         """
         proc_this = self.start()
         return proc_this
 
     async def producer(self, websocket: websockets.ServerConnection) -> None:
-        """生产者,即发送逻辑的执行者
+        """生产者
+
+        即发送逻辑的执行者
 
         Args:
-        - websocket: WebSocket连接对象, 用于发送消息
+            websocket: WebSocket连接对象, 用于发送消息
         """
         while True:
             rx_packet_data: OlivOS.API.Control.packet = await self.async_rx_queue.get()
@@ -156,16 +185,17 @@ class server(OlivOS.API.Proc_templet):
                 self.async_rx_queue.task_done()
 
     async def consumer(self, websocket: websockets.ServerConnection) -> None:
-        """消费者,即接收逻辑的执行者
+        """消费者
+
+        即接收逻辑的执行者
 
         Args:
-        - websocket: WebSocket连接对象, 用于接收消息
+            websocket: WebSocket连接对象, 用于接收消息
         """
         async for raw_message in websocket:
             try:
                 extra_info = {
                     'id': self.bot_info.id,
-                    'token': self.conf.token,
                     'type': self.conf.type,
                 }
                 sdk_event = OlivOS.onebotSDK.event(raw_message, extra_info)
@@ -178,12 +208,13 @@ class server(OlivOS.API.Proc_templet):
 
     def bridger(self, loop: asyncio.AbstractEventLoop) -> None:
         """队列桥接者
+
         单独开一个线程将rx_queue的数据搬运到异步队列,以此规避producer频繁调用to_thread带来的性能问题
         这基于rx_queue是multiprocessing.Queue对象, 事实上也的确是
 
         Args:
-        - loop: 当前事件循环对象
-        - async_rx_queue: producer使用的异步队列,用于接收数据
+            loop: 当前事件循环对象
+            async_rx_queue: producer使用的异步队列,用于接收数据
         """
         while True:
             try:
@@ -202,15 +233,17 @@ class server(OlivOS.API.Proc_templet):
             connection: websockets.ServerConnection,
             request: websockets.Request
     ) -> Response | None:
-        """验证者,即鉴权逻辑的执行者
+        """验证者
+
+        即鉴权逻辑的执行者
         为WebSocket服务器的process_request回调函数
 
         Args:
-        - connection: WebSocket连接对象,未使用
-        - request: WebSocket请求对象
+            connection: WebSocket连接对象,未使用
+            request: WebSocket请求对象
 
         Returns:
-        - Response | None: None表示成功,否则返回Response对象
+            Response | None: None表示成功,否则返回Response对象
         """
         token = self.conf.token
         if not token:
@@ -231,7 +264,7 @@ class server(OlivOS.API.Proc_templet):
         """处理WebSocket连接的协程
 
         Args:
-        - websocket: WebSocket连接对象, 用于传给consumer和producer接收和发送消息
+            websocket: WebSocket连接对象, 用于传给consumer和producer接收和发送消息
         """
         self.on_open()
 
