@@ -124,6 +124,7 @@ class server(OlivOS.API.Proc_templet):
         conf (ServerConf): 服务器配置
         extra_conf (ExtraConf): 额外配置
     """
+
     def __init__(
         self,
         Proc_name,
@@ -226,6 +227,7 @@ class server(OlivOS.API.Proc_templet):
             finally:
                 for task in pending:
                     task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
                 if self.ws_conn is not None:
                     await self.ws_conn.close()
                     self.on_close()
@@ -306,11 +308,30 @@ class server(OlivOS.API.Proc_templet):
         while True:
             try:
                 rx_packet_data = self.Proc_info.rx_queue.get()
-                asyncio.run_coroutine_threadsafe(self.async_rx_queue.put(rx_packet_data), loop)
+                loop.call_soon_threadsafe(
+                    self.__safe_async_put,
+                    rx_packet_data
+                )
             except EOFError:
                 break
             except Exception as e:
                 self.on_error(e)
+
+    def __safe_async_put(self, data: OlivOS.API.Control.packet) -> None:
+        """异步队列入队逻辑
+
+        在连接启动时正常入队，在连接未启动时返回
+        在队列已满时不再入队
+
+        Args:
+            data (OlivOS.API.Control.packet): 数据包
+        """
+        if self.ws_conn is None:
+            return
+        try:
+            self.async_rx_queue.put_nowait(data)    # 过期消息不再塞入
+        except asyncio.QueueFull:
+            pass
 
     def on_open(self) -> None:
         """连接建立时的处理"""
