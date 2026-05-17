@@ -99,7 +99,7 @@ class shallow(API.Proc_templet):
         self.plugin_models_call_list = []
         self.tx_queue = []
         self.menu_queue = []
-        self.database = None
+        self.database: OlivOS.userModule.UserConfDB.DataBaseAPI = None
 
     class rx_packet(object):
         def __init__(self, sdk_event):
@@ -199,6 +199,10 @@ class shallow(API.Proc_templet):
                         self.set_restart()
 
     def set_restart(self):
+        """重载插件
+
+        该接口可以重启整个插件加载器，并重新加载这个插件。
+        """
         self.log(2, OlivOS.L10NAPI.getTrans(
             'OlivOS plugin shallow [{0}] call restart', [
                 self.Proc_name
@@ -217,6 +221,13 @@ class shallow(API.Proc_templet):
         self.Proc_info.control_queue.put(API.Control.packet('init_type', 'update_get'), block=False)
 
     def get_plugin_list(self):
+        """获取插件列表
+
+        该接口可以获得一个由插件的`namespace`填充的`list`，这可以让你知道当前的`OlivOS`上存在哪些插件。
+
+        Returns:
+            list: 插件列表，Defaults to []
+        """
         return self.plugin_models_call_list
 
     def get_main_root(self):
@@ -512,7 +523,7 @@ class shallow(API.Proc_templet):
                 }
             }
         }
-                              )
+        )
         self.sendControlEvent('send', {
             'target': {
                 'type': 'nativeWinUI'
@@ -521,7 +532,7 @@ class shallow(API.Proc_templet):
                 'action': 'start_shallow'
             }
         }
-                              )
+        )
 
     def sendControlEvent(self, action, data):
         if self.Proc_info.control_queue is not None:

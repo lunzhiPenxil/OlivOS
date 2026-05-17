@@ -718,6 +718,13 @@ class Event(object):
             ])
 
     def set_block(self, enable: bool = True, flag_log: bool = True, remote: bool = False):
+        """阻塞后续插件
+
+        用于就此阻塞丢弃该消息事件而不传递给后续插件处理
+
+        Args:
+            enable: 阻塞状态 (default: True)
+        """
         if remote:
             pass
         else:
@@ -853,6 +860,13 @@ class Event(object):
                     ])
 
     def reply(self, message, flag_log: bool = True, remote: bool = False):
+        """回复消息
+
+        用于快速原路回复消息
+
+        Args:
+            message: 所需要发送的消息
+        """
         if remote:
             pass
         else:
@@ -1138,6 +1152,16 @@ class Event(object):
 
     def send(self, send_type: str, target_id: 'str|int', message, host_id: 'str|int|None' = None, flag_log: bool = True,
              remote: bool = False):
+        """发送消息
+
+        用于发送消息
+
+        Args:
+            send_type: 用于指定发送目标的类型
+            target_id: 发送目标的ID
+            message: 所需要发送的消息
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1158,6 +1182,13 @@ class Event(object):
             pass
 
     def delete_msg(self, message_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """撤回消息
+
+        用于撤回指定消息（以管理员权限）
+
+        Args:
+            message_id: 需要撤回的消息ID
+        """
         if remote:
             pass
         else:
@@ -1180,6 +1211,21 @@ class Event(object):
         return res_data
 
     def get_msg(self, message_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取消息
+
+        用于获取指定消息详情
+
+        Args:
+            message_id: 需要查询的消息ID
+
+        Returns:
+            message_id (ID): 所查询的消息ID，Defaults to None
+            id (ID): 所查询的消息的实际ID，Defaults to -1
+            sender (USER): 发送者信息
+            time (int): 消息时间戳，Defaults to -1
+            message (MSG): 消息内容，Defaults to None
+            raw_message (MSG): 消息原生内容，Defaults to None
+        """
         res_data = None
         if remote:
             pass
@@ -1202,6 +1248,19 @@ class Event(object):
         return res_data
 
     def get_forward_msg(self, message_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取合并转发消息
+
+        用于获取合并转发消息内容
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            message_id: 合并转发消息ID
+
+        Returns:
+            messages (list): 消息列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -1222,6 +1281,17 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.send_group_forward_msg(self, group_id, messages)
 
     def send_group_forward_msg(self, group_id: 'str|int', messages, flag_log: bool = True, remote: bool = False):
+        """发送群合并转发消息
+
+        用于发送群合并转发消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            messages: 消息节点列表
+        """
         if remote:
             pass
         else:
@@ -1240,6 +1310,17 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.send_private_forward_msg(self, user_id, messages)
 
     def send_private_forward_msg(self, user_id: 'str|int', messages, flag_log: bool = True, remote: bool = False):
+        """发送私聊合并转发消息
+
+        用于发送私聊合并转发消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            user_id: 用户ID
+            messages: 消息节点列表
+        """
         if remote:
             pass
         else:
@@ -1258,6 +1339,16 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.set_essence_msg(self, message_id)
 
     def set_essence_msg(self, message_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """设置精华消息
+
+        用于设置精华消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            message_id: 消息ID
+        """
         if remote:
             pass
         else:
@@ -1276,6 +1367,16 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.delete_essence_msg(self, message_id)
 
     def delete_essence_msg(self, message_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """移出精华消息
+
+        用于移出精华消息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            message_id: 消息ID
+        """
         if remote:
             pass
         else:
@@ -1296,6 +1397,14 @@ class Event(object):
             pass
 
     def send_like(self, user_id: 'str|int', times: int = 1, flag_log: bool = True, remote: bool = False):
+        """发送赞
+
+        用于发送赞
+
+        Args:
+            user_id: 点赞对象ID
+            times: 点赞次数 (default: 1)
+        """
         if remote:
             pass
         else:
@@ -1314,6 +1423,16 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.send_group_sign(self, group_id)
 
     def send_group_sign(self, group_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """群打卡
+
+        用于群打卡
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+        """
         if remote:
             pass
         else:
@@ -1334,6 +1453,32 @@ class Event(object):
         return res_data
 
     def get_essence_msg_list(self, group_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取精华消息列表
+
+        用于获取群精华消息列表
+
+        支持平台：`OneBotV11`
+        支持协议：Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - sender_id (int): 发送者QQ号
+                - sender_nick (str): 发送者昵称
+                - sender_time (int): 发送时间戳
+                - operator_id (int): 操作者QQ号
+                - operator_nick (str): 操作者昵称
+                - operator_time (int): 操作时间戳
+                - message_id (int): 消息ID
+                - message (str): 消息内容
+                - wording (str): 精华消息说明
+                - extra (dict): 平台特有扩展数据
+                    * extra.msg_seq (int): 消息序号 NapCat
+                    * extra.msg_random (int): 消息随机数 NapCat
+                    * extra.content (list): 消息内容列表 NapCat, Lagrange
+        """
         if remote:
             pass
         else:
@@ -1354,6 +1499,28 @@ class Event(object):
         return res_data
 
     def get_group_ignore_add_request(self, group_id: 'str|int' = None, flag_log: bool = True, remote: bool = False):
+        """获取已过滤的加群通知
+
+        用于获取已过滤的加群通知
+
+        支持平台：OneBotV11
+        支持协议：NapCat（LLOneBot请使用`get_group_system_msg`）
+
+        Args:
+            group_id: 群ID（可选，用于筛选特定群） (default: None)
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - request_id (int): 请求ID
+                - invitor_uin (int): 邀请者QQ号
+                - invitor_nick (str): 邀请者昵称
+                - group_id (int): 群号
+                - group_name (str): 群名称
+                - checked (bool): 是否已处理
+                - actor (int): 操作者QQ号
+                - requester_nick (str): 请求者昵称
+                - message (str): 请求消息
+        """
         if remote:
             pass
         else:
@@ -1374,6 +1541,29 @@ class Event(object):
         return res_data
 
     def get_doubt_friends_add_request(self, count: int = 50, flag_log: bool = True, remote: bool = False):
+        """获取被过滤的好友请求
+
+        用于获取被过滤的好友请求
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+
+        Args:
+            count: 获取数量 (default: 50)
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - flag (str): 请求标识
+                - uin (str): 请求者QQ号
+                - nick (str): 请求者昵称
+                - source (str): 请求来源
+                - reason (str): 验证消息
+                - msg (str): 附加消息
+                - group_code (str): 来源群号
+                - time (str): 请求时间
+                - type (str): 请求类型
+                - extra (dict): 平台特有扩展数据
+        """
         if remote:
             pass
         else:
@@ -1397,6 +1587,18 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """处理被过滤的好友请求
+
+        用于处理被过滤的好友请求
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+        - LLOneBot 不使用`approve`参数
+
+        Args:
+            flag: 加好友请求的`flag`（需下事件的数据中获得）
+            approve: 是否同意请求 (default: True)
+        """
         if remote:
             pass
         else:
@@ -1417,6 +1619,23 @@ class Event(object):
         return res_data
 
     def get_group_system_msg(self, count: int = 50, flag_log: bool = True, remote: bool = False):
+        """获取群系统消息
+
+        用于获取群系统消息（包括加群申请和邀请）
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+        - LLOneBot 使用 GET 方法，不支持 count 参数
+        - NapCat 使用 POST 方法，支持 count 参数
+        - LLOneBot 的已过滤请求也在此接口查看
+
+        Args:
+            count: 获取数量（仅NapCat支持） (default: 50)
+
+        Returns:
+            invited_requests (list): 邀请加群申请列表，Defaults to []
+            join_requests (list): 加群申请列表，Defaults to []
+        """
         if remote:
             pass
         else:
@@ -1437,6 +1656,17 @@ class Event(object):
             pass
 
     def group_poke(self, group_id: 'str|int', user_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """群戳一戳
+
+        用于在群内戳一戳某人
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            user_id: 用户ID
+        """
         if remote:
             pass
         else:
@@ -1457,6 +1687,27 @@ class Event(object):
         return res_data
 
     def get_group_notice(self, group_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取群公告
+
+        用于获取群公告列表
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+        - NapCat/Lagrange: notice_id 为字符串类型，extra.notice_id_type = 'string'
+        - 其他平台: notice_id 为整数类型，extra.notice_id_type = 'int'
+
+        Args:
+            group_id: 群ID
+
+        Returns:
+            list[dict]: 返回值为列表，列表中每项包含以下字段：
+                - sender_id (int): 发送者QQ号
+                - publish_time (int): 发布时间戳
+                - message (dict): 公告内容(字典格式)
+                - notice_id (str/int): 公告ID
+                - extra (dict): 扩展信息
+                    * notice_id_type (str): 公告类型，可能值为 'string' 或 'int'
+        """
         if remote:
             pass
         else:
@@ -1481,6 +1732,25 @@ class Event(object):
         remote: bool = False,
         **kwargs
     ):
+        """发送群公告
+
+        用于发送群公告
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+        - NapCat具有额外参数kwargs
+
+        Args:
+            group_id: 群ID
+            content: 公告内容
+            image: 公告图片URL (default: None)
+            **kwargs (dict): NapCat 额外参数
+                - pinned (int): 是否置顶(0-不置顶, 1-置顶)
+                - type (int): 公告类型
+                - confirm_required (int): 是否需要确认(0-不需要, 1-需要)
+                - is_show_edit_card (int): 是否显示编辑卡片
+                - tip_window_type (int): 提示窗口类型
+        """
         if remote:
             pass
         else:
@@ -1499,6 +1769,17 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.del_group_notice(self, group_id, notice_id)
 
     def del_group_notice(self, group_id: 'str|int', notice_id: str, flag_log: bool = True, remote: bool = False):
+        """删除群公告
+
+        用于删除群公告
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            notice_id: 公告ID
+        """
         if remote:
             pass
         else:
@@ -1519,6 +1800,16 @@ class Event(object):
             pass
 
     def friend_poke(self, user_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """好友戳一戳
+
+        用于戳一戳好友
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
+
+        Args:
+            user_id: 用户ID
+        """
         if remote:
             pass
         else:
@@ -1560,6 +1851,16 @@ class Event(object):
 
     def set_group_kick(self, group_id: 'str|int', user_id: 'str|int', host_id: 'str|int|None' = None,
                        rehect_add_request: bool = False, flag_log: bool = True, remote: bool = False):
+        """踢出群成员
+
+        用于踢出群成员
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+            rehect_add_request: 是否拉黑对象 (default: False)
+        """
         if remote:
             pass
         else:
@@ -1593,6 +1894,16 @@ class Event(object):
 
     def set_group_ban(self, group_id: 'str|int', user_id: 'str|int', host_id: 'str|int|None' = None,
                       duration: int = 1800, flag_log: bool = True, remote: bool = False):
+        """禁言群成员
+
+        用于禁言群成员
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+            duration: 禁言时长/秒 (default: 1800)，0表示解除禁言
+        """
         if remote:
             pass
         else:
@@ -1645,6 +1956,15 @@ class Event(object):
 
     def set_group_whole_ban(self, group_id: 'str|int', enable: bool, host_id: 'str|int|None' = None,
                             flag_log: bool = True, remote: bool = False):
+        """禁言本群
+
+        用于禁言本群
+
+        Args:
+            group_id: 群对象ID
+            enable: 禁言状态
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1670,6 +1990,16 @@ class Event(object):
 
     def set_group_admin(self, group_id: 'str|int', user_id: 'str|int', enable: bool, host_id: 'str|int|None' = None,
                         flag_log: bool = True, remote: bool = False):
+        """设置群管理员
+
+        用于设置群管理员
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            enable: 管理员状态
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1734,6 +2064,16 @@ class Event(object):
 
     def set_group_card(self, group_id: 'str|int', user_id: 'str|int', card, host_id: 'str|int|None' = None,
                        flag_log: bool = True, remote: bool = False):
+        """设置群成员名片
+
+        用于设置群成员名片
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            card: 新的群名片
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1759,6 +2099,15 @@ class Event(object):
 
     def set_group_name(self, group_id: 'str|int', group_name: str, host_id: 'str|int|None' = None,
                        flag_log: bool = True, remote: bool = False):
+        """设置群名
+
+        用于设置群名
+
+        Args:
+            group_id: 群对象ID
+            group_name: 新的群名
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1803,6 +2152,15 @@ class Event(object):
 
     def set_group_leave(self, group_id: 'str|int', host_id: 'str|int|None' = None, is_dismiss: bool = False,
                         flag_log: bool = True, remote: bool = False):
+        """退出群
+
+        用于退出群
+
+        Args:
+            group_id: 群对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+            is_dismiss: 当为群主时是否解散该群 (default: False)
+        """
         if remote:
             pass
         else:
@@ -1833,6 +2191,17 @@ class Event(object):
 
     def set_group_special_title(self, group_id: 'str|int', user_id: 'str|int', special_title: str, duration: int,
                                 host_id: 'str|int|None' = None, flag_log: bool = True, remote: bool = False):
+        """设置群成员特殊头衩
+
+        用于设置群成员特殊头衣
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            special_title: 专属头衣，不填或空字符串表示删除专属头衣
+            duration: 专属头衣有效期/秒，`-1`表示永久
+            host_id: 发送目标的所属HOST ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -1858,6 +2227,15 @@ class Event(object):
 
     def set_friend_add_request(self, flag: str, approve: bool, remark: str, flag_log: bool = True,
                                remote: bool = False):
+        """处理好友请求
+
+        用于处理好友请求
+
+        Args:
+            flag: 加好友请求的`flag`（需下事件的数据中获得）
+            approve: 是否同意请求
+            remark: 添加后的好友备注（仅在同意时有效）
+        """
         if remote:
             pass
         else:
@@ -1883,6 +2261,16 @@ class Event(object):
 
     def set_group_add_request(self, flag: str, sub_type: str, approve: bool, reason: str, flag_log: bool = True,
                               remote: bool = False):
+        """处理群请求
+
+        用于处理群请求
+
+        Args:
+            flag: 加群请求的`flag`（需下事件的数据中获得）
+            sub_type: 请求类型（需要和事件中的`sub_type`字段相符）
+            approve: 是否同意请求/邀请
+            reason: 拒绝理由（仅在拒绝时有效）
+        """
         if remote:
             pass
         else:
@@ -1940,6 +2328,13 @@ class Event(object):
         return res_data
 
     def get_login_info(self, flag_log: bool = True, remote: bool = False):
+        """获取登录账号信息
+
+        用于获取登录账号信息
+
+        Returns:
+            dict: 整个返回值为USER类型
+        """
         res_data = None
         if remote:
             pass
@@ -1967,6 +2362,16 @@ class Event(object):
 
     def get_stranger_info(self, user_id: 'str|int', no_cache: bool = False, flag_log: bool = True,
                           remote: bool = False):
+        """获取陌生人信息
+
+        用于获取陌生人信息
+
+        Args:
+            user_id: 陌生人对象ID
+
+        Returns:
+            dict: 整个返回值为USER类型
+        """
         res_data = None
         if remote:
             pass
@@ -1991,6 +2396,13 @@ class Event(object):
         return res_data
 
     def get_friend_list(self, flag_log: bool = True, remote: bool = False):
+        """获取好友列表
+
+        用于获取好友列表
+
+        Returns:
+            list[dict]: 整个返回值为USER类型的列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2024,6 +2436,17 @@ class Event(object):
 
     def get_group_info(self, group_id: 'str|int', host_id: 'str|int|None' = None, no_cache: bool = False,
                        flag_log: bool = True, remote: bool = False):
+        """获取群信息
+
+        用于获取群信息
+
+        Args:
+            group_id: 群对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+
+        Returns:
+            dict: 整个返回值为GROUP类型
+        """
         res_data = None
         if remote:
             pass
@@ -2061,6 +2484,13 @@ class Event(object):
         return res_data
 
     def get_group_list(self, flag_log: bool = True, remote: bool = False):
+        """获取群列表
+
+        用于获取群列表
+
+        Returns:
+            list[dict]: 整个返回值为GROUP类型的列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2106,6 +2536,18 @@ class Event(object):
 
     def get_group_member_info(self, group_id: 'str|int', user_id: 'str|int', host_id: 'str|int|None' = None,
                               no_cache: bool = False, flag_log: bool = True, remote: bool = False):
+        """获取群成员信息
+
+        用于获取群成员信息
+
+        Args:
+            group_id: 群对象ID
+            user_id: 群成员对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+
+        Returns:
+            dict: 整个返回值为GROUPUSER类型
+        """
         res_data = None
         if remote:
             pass
@@ -2151,6 +2593,17 @@ class Event(object):
 
     def get_group_member_list(self, group_id: 'str|int', host_id: 'str|int|None' = None, flag_log: bool = True,
                               remote: bool = False):
+        """获取群成员列表
+
+        用于获取群成员列表
+
+        Args:
+            group_id: 群对象ID
+            host_id: 发送目标的所属HOST ID (default: None)
+
+        Returns:
+            list[dict]: 整个返回值为GROUPUSER类型的列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2166,6 +2619,13 @@ class Event(object):
         return res_data
 
     def get_host_list(self, flag_log: bool = True, remote: bool = False):
+        """获取频道列表
+
+        用于获取频道列表
+
+        Returns:
+            list: 频道列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2181,6 +2641,13 @@ class Event(object):
         return res_data
 
     def get_host_info(self, host_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取频道信息
+
+        用于获取频道信息
+
+        Args:
+            host_id: 频道ID
+        """
         res_data = None
         if remote:
             pass
@@ -2205,6 +2672,13 @@ class Event(object):
         return res_data
 
     def can_send_image(self, flag_log: bool = True, remote: bool = False):
+        """检查是否可以发送图片
+
+        用于检查是否可以发送图片
+
+        Returns:
+            yes (bool): 是否可以发送图片
+        """
         res_data = None
         if remote:
             pass
@@ -2229,6 +2703,13 @@ class Event(object):
         return res_data
 
     def can_send_record(self, flag_log: bool = True, remote: bool = False):
+        """检查是否可以发送语音
+
+        用于检查是否可以发送语音
+
+        Returns:
+            yes (bool): 是否可以发送语音
+        """
         res_data = None
         if remote:
             pass
@@ -2253,6 +2734,14 @@ class Event(object):
         return res_data
 
     def get_status(self, flag_log: bool = True, remote: bool = False):
+        """获取运行状态
+
+        用于获取OneBot运行状态
+
+        Returns:
+            online (bool): 当前QQ在线状态
+            good (bool): 状态符合预期
+        """
         res_data = None
         if remote:
             pass
@@ -2277,6 +2766,15 @@ class Event(object):
         return res_data
 
     def get_version_info(self, flag_log: bool = True, remote: bool = False):
+        """获取版本信息
+
+        用于获取OneBot版本信息
+
+        Returns:
+            app_name (str): 应用标识
+            app_version (str): 应用版本
+            protocol_version (str): OneBot协议版本
+        """
         res_data = None
         if remote:
             pass
@@ -2300,6 +2798,19 @@ class Event(object):
 
     def upload_group_file(self, group_id: 'str|int', file: str, name: str = '', folder_id: 'str|None' = None,
                           flag_log: bool = True, remote: bool = False):
+        """上传群文件
+
+        用于上传群文件
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            file: 本地文件路径
+            name: 存储名称 (default: '')
+            folder_id: 父目录ID (default: None)
+        """
         if remote:
             pass
         else:
@@ -2319,6 +2830,18 @@ class Event(object):
 
     def delete_group_file(self, group_id: 'str|int', file_id: str, name: 'str|None' = None, flag_log: bool = True,
                           remote: bool = False):
+        """删除群文件
+
+        用于删除群文件
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            file_id: 文件ID
+            name: 文件名（未使用） (default: None)
+        """
         if remote:
             pass
         else:
@@ -2338,6 +2861,18 @@ class Event(object):
 
     def create_group_file_folder(self, group_id: 'str|int', name: str, parent_id: str = '/', flag_log: bool = True,
                                  remote: bool = False):
+        """创建群文件夹
+
+        用于创建群文件夹
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            name: 文件夹名称
+            parent_id: 父目录ID (default: '/')
+        """
         if remote:
             pass
         else:
@@ -2356,6 +2891,17 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.delete_group_folder(self, group_id, folder_id)
 
     def delete_group_folder(self, group_id: 'str|int', folder_id: str, flag_log: bool = True, remote: bool = False):
+        """删除群文件夹
+
+        用于删除群文件夹
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            folder_id: 文件夹ID
+        """
         if remote:
             pass
         else:
@@ -2376,6 +2922,22 @@ class Event(object):
         return res_data
 
     def get_group_file_system_info(self, group_id: 'str|int', flag_log: bool = True, remote: bool = False):
+        """获取群文件系统信息
+
+        用于获取群文件系统信息
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+
+        Returns:
+            file_count (int): 文件数量，Defaults to 0
+            limit_count (int): 文件数量限制，Defaults to 0
+            used_space (int): 已使用空间，Defaults to 0
+            total_space (int): 总空间，Defaults to 0
+        """
         res_data = None
         if remote:
             pass
@@ -2403,6 +2965,22 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """获取群根目录文件列表
+
+        用于获取群根目录文件列表
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot（file_count参数仅NapCat支持）
+
+        Args:
+            group_id: 群ID
+            file_count: 获取数量（NapCat支持） (default: None)
+
+        Returns:
+            list[dict]: 整个返回值为列表，列表中每项包含以下字段：
+                - files (list): 文件列表，Defaults to []
+                - folders (list): 文件夹列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2432,6 +3010,22 @@ class Event(object):
 
     def get_group_files_by_folder(self, group_id: 'str|int', folder_id: str, file_count: 'int|None' = None,
                                   flag_log: bool = True, remote: bool = False):
+        """获取群子目录文件列表
+
+        用于获取群子目录文件列表
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot（file_count参数仅NapCat支持）
+
+        Args:
+            group_id: 群ID
+            folder_id: 文件夹ID
+            file_count: 获取数量（NapCat支持） (default: None)
+
+        Returns:
+            files (list): 文件列表，Defaults to []
+            folders (list): 文件夹列表，Defaults to []
+        """
         res_data = None
         if remote:
             pass
@@ -2455,6 +3049,21 @@ class Event(object):
 
     def get_group_file_url(self, group_id: 'str|int', file_id: str, busid: int, flag_log: bool = True,
                            remote: bool = False):
+        """获取群文件下载链接
+
+        用于获取群文件下载链接
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            file_id: 文件ID
+            busid: 文件类型
+
+        Returns:
+            url (str): 文件下载URL, Defaults to ''
+        """
         res_data = None
         if remote:
             pass
@@ -2476,6 +3085,18 @@ class Event(object):
 
     def upload_private_file(self, user_id: 'str|int', file: str, name: str, flag_log: bool = True,
                             remote: bool = False):
+        """上传私聊文件
+
+        用于上传私聊文件
+
+        支持平台：OneBotV11
+        支持协议：go-cqhttp、Lagrange、NapCat、LLOneBot
+
+        Args:
+            user_id: 用户ID
+            file: 本地文件路径
+            name: 文件名称
+        """
         if remote:
             pass
         else:
@@ -2498,6 +3119,18 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """重命名群文件夹
+
+        用于重命名群文件夹
+
+        支持平台：OneBotV11
+        支持协议：LLOneBot、Lagrange
+
+        Args:
+            group_id: 群ID
+            folder_id: 文件夹ID
+            new_folder_name: 新文件夹名称
+        """
         if remote:
             pass
         else:
@@ -2526,6 +3159,19 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """重命名群文件
+
+        用于重命名群文件
+
+        支持平台：OneBotV11
+        支持协议：NapCat
+
+        Args:
+            group_id: 群ID
+            file_id: 文件ID
+            current_parent_directory: 当前父目录路径
+            new_name: 新文件名
+        """
         if remote:
             pass
         else:
@@ -2544,6 +3190,17 @@ class Event(object):
                 OlivOS.onebotSDK.event_action.set_group_file_forever(self, group_id, file_id)
 
     def set_group_file_forever(self, group_id: 'str|int', file_id: str, flag_log: bool = True, remote: bool = False):
+        """群文件转永久
+
+        用于将群文件转为永久保存
+
+        支持平台：OneBotV11
+        支持协议：NapCat、LLOneBot
+
+        Args:
+            group_id: 群ID
+            file_id: 文件ID
+        """
         if remote:
             pass
         else:
@@ -2568,6 +3225,22 @@ class Event(object):
         flag_log: bool = True,
         remote: bool = False
     ):
+        """消息表情回应
+
+        用于给消息添加或取消表情回应，统合了所有主流协议的接口实现
+
+        支持平台：OneBotV11
+        支持协议：Lagrange、NapCat、LLOneBot
+        - Lagrange 平台必须提供 group_id 参数，使用 set_group_reaction 接口
+        - NapCat 使用 set_msg_emoji_like 接口，emoji_id为整数
+        - LLOneBot 根据is_set使用 set_msg_emoji_like 或 unset_msg_emoji_like 接口
+
+        Args:
+            message_id: 消息ID
+            emoji_id: 表情ID（Lagrange使用字符串code，NapCat和LLOneBot使用整数ID）
+            is_set: True为添加，False为取消 (default: True)
+            group_id: 群ID（Lagrange必需） (default: None)
+        """
         if remote:
             pass
         else:
