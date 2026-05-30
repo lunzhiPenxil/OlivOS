@@ -29,7 +29,6 @@ from PIL import Image
 from PIL import ImageTk
 
 from tkinter import ttk
-from tkinter import messagebox
 
 dictColorContext = {
     'color_001': '#00A0EA',
@@ -1365,7 +1364,21 @@ class QRcodeUI(object):
         self.UIObject['root'].destroy()
 
 
-class gocqhttpTerminalUI(object):
+# ---------------------------- 基类 ----------------------------
+class BaseTerminalUI:
+    """所有终端UI的基类，提供通用的布局、事件处理和生命周期管理"""
+
+    # 子类可覆盖的配置
+    WINDOW_TITLE = "终端"
+    WINDOW_SIZE = "800x600"
+    MIN_SIZE = (800, 600)
+    # 网格列权重配置，默认4列 (col0权重0, col1权重2, col2权重2, col3权重0)
+    COLUMN_WEIGHTS = [(0, 0), (1, 2), (2, 2), (3, 0)]
+    # 是否包含发送按钮 (有些子类可能不需要)
+    HAS_SEND_BUTTON = True
+    # 是否包含输入框标签 (一般不需要，设为False)
+    HAS_INPUT_LABEL = False
+
     def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
         self.Model_name = Model_name
         self.root = root
@@ -1375,132 +1388,140 @@ class gocqhttpTerminalUI(object):
         self.UIData = {}
         self.UIConfig = {}
         self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+        self.UIConfig.update(dictColorContext)  # 全局颜色配置
 
+    # ========== 模板方法 ==========
     def start(self):
+        """启动UI的主流程，子类可覆盖部分步骤"""
+        self._build_main_window()
+        self._build_tree()
+        self._build_scrollbar()
+        self._build_input_area()
+        if self.HAS_SEND_BUTTON:
+            self._build_send_button()
+        self._build_extra_controls()   # 子类可添加额外控件
+        self._post_build()             # 收尾工作（图标、协议、历史日志等）
+        self.UIObject['root'].mainloop()
+        self.exit()
+
+    def _build_main_window(self):
+        """创建主窗口，配置几何和网格权重"""
         self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('GoCqhttp 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
+        self.UIObject['root'].title(self.get_window_title())
+        self.UIObject['root'].geometry(self.WINDOW_SIZE)
+        self.UIObject['root'].minsize(*self.MIN_SIZE)
+        self._config_grid_weights()
+        self.UIObject['root'].resizable(width=True, height=True)
         self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
 
+    def _config_grid_weights(self):
+        """配置网格行/列权重"""
+        self.UIObject['root'].grid_rowconfigure(0, weight=15)
+        self.UIObject['root'].grid_rowconfigure(1, weight=0)
+        for col, weight in self.COLUMN_WEIGHTS:
+            self.UIObject['root'].grid_columnconfigure(col, weight=weight)
+
+    def _build_tree(self):
+        """创建日志树形视图"""
         self.UIObject['style'] = ttk.Style()
         fix_Treeview_color(self.UIObject['style'])
 
         self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
         self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
+        self.UIObject['tree']['columns'] = ('DATA',)
+        # 计算列宽（基于窗口宽度）
+        width = int(self.WINDOW_SIZE.split('x')[0]) - 15*2 - 18 - 5
+        self.UIObject['tree'].column('DATA', width=width)
         self.UIObject['tree'].heading('DATA', text='日志')
         self.UIObject['tree']['selectmode'] = 'browse'
+
         self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
         self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 800 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
+
+        # grid布局，默认跨越前3列（如果列数不同，子类可覆盖）
         self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
+            row=0, column=0, sticky="nsew", rowspan=1, columnspan=3,
+            padx=(15, 0), pady=(15, 0), ipadx=0, ipady=0
         )
+
+    def _build_scrollbar(self):
+        """创建垂直滚动条"""
         self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
+            self.UIObject['root'], orient="vertical", command=self.UIObject['tree'].yview
         )
-        # self.UIObject['tree_yscroll'].place(
-        #    x = 800 - 15 - 18,
-        #    y = 15,
-        #    width = 18,
-        #    height = 600 - 15 * 2 - 24 - 8
-        # )
         self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
+            row=0, column=3, sticky="nsw", rowspan=1, columnspan=1,
+            padx=(0, 15), pady=(15, 0), ipadx=0, ipady=0
         )
         self.UIData['flag_tree_is_bottom'] = True
         self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
+            yscrollcommand=self._scroll_onChange(self.UIObject['tree_yscroll'].set)
         )
 
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
+    def _build_input_area(self):
+        """创建输入框"""
+        self._root_Entry_init(
+            obj_root='root', obj_name='root_input', str_name='root_input_StringVar',
+            x=15, y=self._get_input_y(), width_t=0, width=self._get_input_width(),
+            height=24, action=None, title=self._get_input_label_text()
         )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
+        self.UIObject['root_input'].bind("<Return>", self._root_Entry_enter_Func('root_input'))
         self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
+            row=1, column=0, sticky="s", rowspan=1, columnspan=2,
+            padx=(15, 0), pady=(8, 15), ipadx=0, ipady=4
         )
 
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
+    def _build_send_button(self):
+        """创建发送按钮"""
+        self._root_Button_init(
+            name='root_button_save', text='>', command=self._root_Entry_enter_Func('root_input'),
+            x=self._get_button_x(), y=self._get_input_y(), width=16, height=1
         )
         self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
+            row=1, column=2, sticky="swe", rowspan=1, columnspan=2,
+            padx=(0, 15), pady=(8, 15), ipadx=8, ipady=0
         )
 
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
+    def _build_extra_controls(self):
+        """子类可覆盖以添加额外控件（如OlivOS的等级选择下拉框）"""
+        pass
+
+    def _post_build(self):
+        """收尾工作：图标、关闭协议、加载历史日志"""
+        try:
+            self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
+        except Exception:
+            pass
         self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
+        self._tree_init_line()
 
-        self.tree_init_line()
+    # ========== 辅助计算方法 ==========
+    def get_window_title(self):
+        """子类可覆盖提供动态标题"""
+        if self.bot:
+            return f"{self.WINDOW_TITLE} - {str(self.bot.id)}"
+        return self.WINDOW_TITLE
 
-        self.UIObject['root'].mainloop()
+    def _get_input_y(self):
+        """输入框的Y坐标（基于窗口高度）"""
+        height = int(self.WINDOW_SIZE.split('x')[1])
+        return height - 15*1 - 24
 
-        self.exit()
+    def _get_input_width(self):
+        """输入框宽度"""
+        width = int(self.WINDOW_SIZE.split('x')[0])
+        return width - 15*2
 
-    def scroll_onChange(self, command):
+    def _get_button_x(self):
+        width = int(self.WINDOW_SIZE.split('x')[0])
+        return width - 15*2 - 5
+
+    def _get_input_label_text(self):
+        """输入框前的标签文字（一般不需要）"""
+        return ''
+
+    # ========== 通用事件和方法 ==========
+    def _scroll_onChange(self, command):
         def res(*arg, **kwarg):
             if arg[1] == '1.0':
                 self.UIData['flag_tree_is_bottom'] = True
@@ -1510,16 +1531,17 @@ class gocqhttpTerminalUI(object):
         return res
 
     def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
         self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
+        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self._rightKey_action('show'))
+        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self._rightKey_action('copy'))
+        self._add_extra_menu_items()   # 子类可添加额外菜单项
         self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
 
-    def rightKey_action(self, action: str):
+    def _add_extra_menu_items(self):
+        """子类可覆盖添加额外的右键菜单项"""
+        pass
+
+    def _rightKey_action(self, action: str):
         if action == 'show':
             msg = get_tree_force(self.UIObject['tree'])['text']
             if len(msg) > 0:
@@ -1531,70 +1553,142 @@ class gocqhttpTerminalUI(object):
                 self.UIObject['root'].clipboard_append(msg)
                 self.UIObject['root'].update()
 
-    def root_Entry_enter_Func(self, name):
+    def _root_Entry_enter_Func(self, name):
         def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
+            self._root_Entry_enter(name, None)
         return resFunc
 
-    def root_Entry_enter(self, name, event):
-        if name == 'root_input':
-            input_data = self.UIData['root_input_StringVar'].get()
-            if len(input_data) >= 0 and len(input_data) < 1000:
-                self.root_setGoCqhttpModelSend(input_data)
-            self.UIData['root_input_StringVar'].set('')
+    def _root_Entry_enter(self, name, event):
+        """子类必须实现具体的发送逻辑"""
+        raise NotImplementedError("子类必须实现 _root_Entry_enter 方法")
 
-    def root_setGoCqhttpModelSend(self, input_data):
-        self.root.setGoCqhttpModelSend(self.bot.hash, input_data)
-
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
+    def _root_Entry_init(
+        self, obj_root, obj_name, str_name, x, y, width_t, width, height, action,
+        title='',
+        mode='NONE'
+    ):
+        """通用输入框初始化（带标签，但标签通常不用）"""
+        if title:
+            self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
+            self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
         self.UIData[str_name] = tkinter.StringVar()
         self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
+            self.UIObject[obj_root], textvariable=self.UIData[str_name], font=('TkDefaultFont 12')
         )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
+        self.UIObject[obj_name].configure(bg=self.UIConfig['color_004'], fg=self.UIConfig['color_005'], bd=0)
         if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
+            self.UIObject[obj_name].configure(show='●')
+        if width > 0:
+            self.UIObject[obj_name].configure(width=width)
 
-    def show_tx_url_webbrowser(self, url):
-        res = tkinter.messagebox.askquestion("请完成验证", "是否使用内置人机验证助手访问 \"" + url + "\" ?")
+    def _root_Button_init(self, name, text, command, x, y, width, height):
+        self.UIObject[name] = tkinter.Button(
+            self.UIObject['root'], text=text, command=command, bd=0,
+            activebackground=self.UIConfig['color_002'], activeforeground=self.UIConfig['color_001'],
+            bg=self.UIConfig['color_003'], fg=self.UIConfig['color_004'], relief='groove', height=height
+        )
+        self.UIObject[name].bind('<Enter>', lambda e: self._button_action(name, '<Enter>'))
+        self.UIObject[name].bind('<Leave>', lambda e: self._button_action(name, '<Leave>'))
+
+    def _button_action(self, name, action):
+        if name in self.UIObject:
+            if action == '<Enter>':
+                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
+            elif action == '<Leave>':
+                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
+
+    def stop(self):
+        self.exit()
+        self.UIObject['root'].destroy()
+
+    def exit(self):
+        """子类可覆盖，用于从父窗口的数据结构中移除自己"""
+        pass
+
+    # ========== 日志相关方法（子类可覆盖） ==========
+    def _tree_init_line(self):
+        """加载历史日志，子类需实现具体从何处读取"""
+        pass
+
+    def tree_add_line(self, data, flagInit=False):
+        """添加一行日志，子类可按需覆盖"""
+        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
+        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
+        res_data_1 = res_data
+        res_data = res_data.replace('\\', '\\\\').replace(' ', '\\ ')
+        if len(res_data.replace('\\ ', '')) > 0:
+            try:
+                iid = self.UIObject['tree'].insert('', tkinter.END, text=res_data_1, values=(res_data,))
+                keep_tree_thin(self.UIObject['tree'])
+                if self.UIData.get('flag_tree_is_bottom', True):
+                    self.UIObject['tree'].see(iid)
+            except Exception:
+                pass
+
+    # ========== 浏览器辅助（子类可用） ==========
+    def _show_url_webbrowser(self, url):
+        res = tkinter.messagebox.askquestion("请完成验证", f"是否通过浏览器访问 \"{url}\" ?")
         try:
             if res == 'yes':
+                webbrowser.open(url)
+        except webbrowser.Error as error_info:
+            tkinter.messagebox.showerror("webbrowser.Error", error_info)
+
+
+# ---------------------------- 各子类实现 ----------------------------
+class gocqhttpTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "GoCqhttp 终端"
+    WINDOW_SIZE = "800x600"
+    MIN_SIZE = (800, 600)
+
+    def _root_Entry_enter(self, name, event):
+        if name == 'root_input':
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 <= len(input_data) < 1000:
+                self.root.setGoCqhttpModelSend(self.bot.hash, input_data)
+            self.UIData['root_input_StringVar'].set('')
+
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_gocqhttp_terminal_data', {}):
+            for line in self.root.UIObject['root_gocqhttp_terminal_data'][self.bot.hash]:
+                self.tree_add_line(line, flagInit=True)
+
+    def tree_add_line(self, data, flagInit=False):
+        super().tree_add_line(data, flagInit)
+        if not flagInit and platform.system() == 'Windows':
+            try:
+                # 处理腾讯滑块验证
+                matchRes = re.match(
+                    (
+                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:'
+                        r'\s请前往该地址验证\s+->\s+(http[s]{0,1}://ti\.qq\.com/safe/tools/captcha/sms-verify-login\?[^\s]+).*$'
+                    ),
+                    data
+                )
+                if matchRes:
+                    self._show_tx_url_webbrowser(matchRes.group(1))
+                # 设备锁处理
+                matchRes = re.match(
+                    (
+                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:'
+                        r'\s账号已开启设备锁，请前往\s+->\s+(http[s]{0,1}://accounts\.qq\.com/safe/verify[^\s]+).*$'
+                    ),
+                    data
+                )
+                if matchRes:
+                    url = matchRes.group(1).replace('accounts.qq.com/safe/verify', 'accounts.qq.com/safe/qrcode')
+                    self._show_url_webbrowser(url)
+            except Exception:
+                pass
+
+    def _show_tx_url_webbrowser(self, url):
+        res = tkinter.messagebox.askquestion("请完成验证", f"是否使用内置人机验证助手访问 \"{url}\" ?")
+        try:
+            if res == 'yes':
+                # 调用外部模块，假设存在
                 OlivOS.libEXEModelAPI.sendOpentxTuringTestPage(
                     control_queue=self.root.Proc_info.control_queue,
-                    name='slider_verification_code=%s' % self.bot.hash,
+                    name=f'slider_verification_code={self.bot.hash}',
                     title='请完成验证',
                     url=url
                 )
@@ -1603,1538 +1697,193 @@ class gocqhttpTerminalUI(object):
         except webbrowser.Error as error_info:
             tkinter.messagebox.showerror("webbrowser.Error", error_info)
 
-    def show_url_webbrowser(self, url):
-        res = tkinter.messagebox.askquestion("请完成验证", "是否通过浏览器访问 \"" + url + "\" ?")
-        try:
-            if res == 'yes':
-                res = tkinter.messagebox.askquestion("请完成验证", "是否使用内置浏览器?")
-                if res == 'yes':
-                    OlivOS.webviewUIAPI.sendOpenWebviewPage(
-                        control_queue=self.root.Proc_info.control_queue,
-                        name='slider_verification_code=%s' % self.bot.hash,
-                        title='请完成验证',
-                        url=url
-                    )
-                else:
-                    webbrowser.open(url)
-        except webbrowser.Error as error_info:
-            tkinter.messagebox.showerror("webbrowser.Error", error_info)
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_gocqhttp_terminal_data']:
-            for line in self.root.UIObject['root_gocqhttp_terminal_data'][self.bot.hash]:
-                self.tree_add_line(line, flagInit=True)
-
-    def tree_add_line(self, data, flagInit=False):
-        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
-        res_data_raw = res_data
-        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data_1 = res_data
-        res_data = res_data.replace('\\', '\\\\')
-        res_data = res_data.replace(' ', '\\ ')
-        if len(res_data.replace('\\ ', '')) > 0:
-            try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_1,
-                    values=(
-                        res_data
-                    )
-                )
-                keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
-                    self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
-            except Exception:
-                pass
-
-        if not flagInit and platform.system() == 'Windows':
-            try:
-                matchRes = re.match(
-                    r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:\s请选择提交滑块ticket方式:.*$',
-                    res_data_raw
-                )
-                if matchRes is not None:
-                    self.tree_add_line('=================================================================')
-                    self.tree_add_line('        【推荐】　选择手动抓取ticket方式将会允许OlivOS接管验证流程　【推荐】')
-                    self.tree_add_line('=================================================================')
-
-                matchRes = re.match(
-                    (
-                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:\s请前往该地址验证\s+'
-                        r'->\s+(http[s]{0,1}://ti\.qq\.com/safe/tools/captcha/sms-verify-login\?[^\s]+).*$'
-                    ),
-                    res_data_raw
-                )
-                if matchRes is not None:
-                    matchResList = list(matchRes.groups())
-                    if len(matchResList) == 1:
-                        matchResUrl = matchResList[0]
-                        self.show_tx_url_webbrowser(matchResUrl)
-
-                matchRes = re.match(
-                    (
-                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:\s账号已开启设备锁，请前往\s+'
-                        r'->\s+(http[s]{0,1}://accounts\.qq\.com/safe/verify[^\s]+).*$'
-                    ),
-                    res_data_raw
-                )
-                if matchRes is not None:
-                    matchResList = list(matchRes.groups())
-                    if len(matchResList) == 1:
-                        matchResUrl = matchResList[0]
-                        matchResUrl = matchResUrl.replace('accounts.qq.com/safe/verify', 'accounts.qq.com/safe/qrcode')
-                        self.show_url_webbrowser(matchResUrl)
-            except Exception:
-                pass
-
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_gocqhttp_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_gocqhttp_terminal'].pop(self.bot.hash, None)
 
 
-class walleqTerminalUI(object):
-    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.bot = bot
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+class walleqTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "WalleQ 终端"
+    WINDOW_SIZE = "800x600"
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('WalleQ 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
-
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 800 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        # self.UIObject['tree_yscroll'].place(
-        #    x = 800 - 15 - 18,
-        #    y = 15,
-        #    width = 18,
-        #    height = 600 - 15 * 2 - 24 - 8
-        # )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
-        )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
-        self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
-        )
-
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
-        )
-        self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
-        )
-
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                tkinter.messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) >= 0 and len(input) < 1000:
-                self.root.setWalleQModelSend(self.bot.hash, input)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 <= len(input_data) < 1000:
+                self.root.setWalleQModelSend(self.bot.hash, input_data)
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
-
-    def show_url_webbrowser(self, url):
-        res = tkinter.messagebox.askquestion("请完成验证", "是否通过浏览器访问 \"" + url + "\" ?")
-        try:
-            if res == 'yes':
-                webbrowser.open(url)
-        except webbrowser.Error as error_info:
-            tkinter.messagebox.showerror("webbrowser.Error", error_info)
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_walleq_terminal_data']:
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_walleq_terminal_data', {}):
             for line in self.root.UIObject['root_walleq_terminal_data'][self.bot.hash]:
                 self.tree_add_line(line, flagInit=True)
 
     def tree_add_line(self, data, flagInit=False):
-        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
-        res_data_raw = res_data
-        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data_1 = res_data
-        res_data = res_data.replace('\\', '\\\\')
-        res_data = res_data.replace(' ', '\\ ')
-        if len(res_data.replace('\\ ', '')) > 0:
-            try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_1,
-                    values=(
-                        res_data
-                    )
-                )
-                keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
-                    self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
-            except Exception:
-                pass
-
+        super().tree_add_line(data, flagInit)
         if not flagInit and platform.system() == 'Windows':
             try:
                 matchRes = re.match(
                     (
-                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:\s请前往该地址验证\s+'
-                        r'->\s+(http[s]{0,1}://captcha\.go-cqhttp\.org/captcha\?[^\s]+).*$'
+                        r'^\[\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}\]\s\[WARNING\]:'
+                        r'\s请前往该地址验证\s+->\s+(http[s]{0,1}://captcha\.go-cqhttp\.org/captcha\?[^\s]+).*$'
                     ),
-                    res_data_raw
+                    data
                 )
-                if matchRes is not None:
-                    matchResList = list(matchRes.groups())
-                    if len(matchResList) == 1:
-                        matchResUrl = matchResList[0]
-                        self.show_url_webbrowser(matchResUrl)
+                if matchRes:
+                    self._show_url_webbrowser(matchRes.group(1))
             except Exception:
                 pass
 
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_walleq_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_walleq_terminal'].pop(self.bot.hash, None)
 
 
-class CWCBTerminalUI(object):
-    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.bot = bot
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+class CWCBTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "ComWeChatBotClient 终端"
+    WINDOW_SIZE = "800x600"
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('ComWeChatBotClient 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
-
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 800 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        # self.UIObject['tree_yscroll'].place(
-        #    x = 800 - 15 - 18,
-        #    y = 15,
-        #    width = 18,
-        #    height = 600 - 15 * 2 - 24 - 8
-        # )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
-        )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
-        self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
-        )
-
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
-        )
-        self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
-        )
-
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                tkinter.messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) >= 0 and len(input) < 1000:
-                self.root.setCWCBModelSend(self.bot.hash, input)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 <= len(input_data) < 1000:
+                self.root.setCWCBModelSend(self.bot.hash, input_data)
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_cwcb_terminal_data']:
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_cwcb_terminal_data', {}):
             for line in self.root.UIObject['root_cwcb_terminal_data'][self.bot.hash]:
                 self.tree_add_line(line, flagInit=True)
 
-    def tree_add_line(self, data, flagInit=False):
-        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
-        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data_1 = res_data
-        res_data = res_data.replace('\\', '\\\\')
-        res_data = res_data.replace(' ', '\\ ')
-        if len(res_data.replace('\\ ', '')) > 0:
-            try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_1,
-                    values=(
-                        res_data
-                    )
-                )
-                keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
-                    self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
-            except Exception:
-                pass
-
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_cwcb_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_cwcb_terminal'].pop(self.bot.hash, None)
 
 
-class opqbotTerminalUI(object):
-    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.bot = bot
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+class opqbotTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "OPQBot 终端"
+    WINDOW_SIZE = "800x600"
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('OPQBot 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
-
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 800 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        # self.UIObject['tree_yscroll'].place(
-        #    x = 800 - 15 - 18,
-        #    y = 15,
-        #    width = 18,
-        #    height = 600 - 15 * 2 - 24 - 8
-        # )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
-        )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
-        self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
-        )
-
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
-        )
-        self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
-        )
-
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                tkinter.messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) >= 0 and len(input) < 1000:
-                self.root.setOPQBotModelSend(self.bot.hash, input)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 <= len(input_data) < 1000:
+                self.root.setOPQBotModelSend(self.bot.hash, input_data)
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_opqbot_terminal_data']:
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_opqbot_terminal_data', {}):
             for line in self.root.UIObject['root_opqbot_terminal_data'][self.bot.hash]:
                 self.tree_add_line(line, flagInit=True)
 
-    def tree_add_line(self, data, flagInit=False):
-        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
-        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data_1 = res_data
-        res_data = res_data.replace('\\', '\\\\')
-        res_data = res_data.replace(' ', '\\ ')
-        if len(res_data.replace('\\ ', '')) > 0:
-            try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_1,
-                    values=(
-                        res_data
-                    )
-                )
-                keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
-                    self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
-            except Exception:
-                pass
-
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_opqbot_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_opqbot_terminal'].pop(self.bot.hash, None)
 
 
-class napcatTerminalUI(object):
-    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.bot = bot
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+class napcatTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "NapCat 终端"
+    WINDOW_SIZE = "800x600"
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('NapCat 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
-
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 800 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        # self.UIObject['tree_yscroll'].place(
-        #    x = 800 - 15 - 18,
-        #    y = 15,
-        #    width = 18,
-        #    height = 600 - 15 * 2 - 24 - 8
-        # )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
-        )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
-        self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
-        )
-
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
-        )
-        self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
-        )
-
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                tkinter.messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) >= 0 and len(input) < 1000:
-                self.root.setNapCatModelSend(self.bot.hash, input)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 <= len(input_data) < 1000:
+                self.root.setNapCatModelSend(self.bot.hash, input_data)
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_napcat_terminal_data']:
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_napcat_terminal_data', {}):
             for line in self.root.UIObject['root_napcat_terminal_data'][self.bot.hash]:
                 self.tree_add_line(line, flagInit=True)
 
-    def tree_add_line(self, data, flagInit=False):
-        res_data = re.sub(r'\033\[[\d;]*m?', '', data)
-        res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data_1 = res_data
-        res_data = res_data.replace('\\', '\\\\')
-        res_data = res_data.replace(' ', '\\ ')
-        if len(res_data.replace('\\ ', '')) > 0:
-            try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_1,
-                    values=(
-                        res_data
-                    )
-                )
-                keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
-                    self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
-            except Exception:
-                pass
-
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_napcat_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_napcat_terminal'].pop(self.bot.hash, None)
 
 
-class OlivOSTerminalUI(object):
-    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+class OlivOSTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "OlivOS 终端"
+    WINDOW_SIZE = "900x600"
+    MIN_SIZE = (900, 600)
+    COLUMN_WEIGHTS = [(0, 0), (1, 2), (2, 2), (3, 0)]
+    HAS_SEND_BUTTON = False
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('OlivOS 终端 - %s' % OlivOS.infoAPI.OlivOS_Version_Title)
-        self.UIObject['root'].geometry('900x600')
-        self.UIObject['root'].minsize(900, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-        self.UIObject['root'].bind('<Configure>', self.root_resize)
+    def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
+        # OlivOS终端没有bot参数，但基类要求，我们忽略它
+        super().__init__(Model_name, logger_proc, root, root_tk, bot)
 
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
+    def get_window_title(self):
+        # 假设 OlivOS.infoAPI.OlivOS_Version_Title 存在
+        return f"{self.WINDOW_TITLE} - {OlivOS.infoAPI.OlivOS_Version_Title}"
 
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
+    def _build_main_window(self):
+        super()._build_main_window()
+        self.UIObject['root'].bind('<Configure>', self._root_resize)
 
+    def _build_tree(self):
+        super()._build_tree()
+        # 为树形视图添加日志等级标签颜色
         for level_this in OlivOS.diagnoseAPI.level_dict:
             self.UIObject['tree'].tag_configure(
                 OlivOS.diagnoseAPI.level_dict[level_this],
-                foreground=OlivOS.diagnoseAPI.level_color_dict[
-                    OlivOS.diagnoseAPI.level_dict[level_this]
-                ]
+                foreground=OlivOS.diagnoseAPI.level_color_dict[OlivOS.diagnoseAPI.level_dict[level_this]]
             )
 
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA',)
-        self.UIObject['tree'].column('DATA', width=710)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        # self.tree_load()
-        # self.UIObject['tree'].place(x = 15, y = 15, width = 900 - 15 * 2 - 18 , height = 600 - 15 * 2 - 24 - 8)
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=2,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.tree_edit_UI_Combobox_init(
-            obj_root='root',
-            obj_name='root_level',
-            str_name='root_level_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=50,
-            height=24,
-            action=None,
-            title='等级'
+    def _build_extra_controls(self):
+        # 添加等级选择下拉框
+        self._tree_edit_UI_Combobox_init(
+            obj_root='root', obj_name='root_level', str_name='root_level_StringVar',
+            x=15, y=self._get_input_y(), width_t=0, width=50, height=24,
+            action=None, title='等级'
         )
         self.UIObject['root_level'].grid(
-            row=1,
-            column=0,
-            sticky="ns",
-            rowspan=1,
-            columnspan=1,
-            padx=(15, 8),
-            pady=(9, 15),
-            ipadx=0,
-            ipady=0
+            row=1, column=0, sticky="ns", rowspan=1, columnspan=1,
+            padx=(15, 8), pady=(9, 15), ipadx=0, ipady=0
         )
         self.UIData['level_list'] = []
         self.UIData['level_find'] = {}
         self.UIData['level_default'] = 'INFO'
         for level_this in OlivOS.diagnoseAPI.level_dict:
-            self.UIData['level_list'].append(OlivOS.diagnoseAPI.level_dict[level_this])
-            self.UIData['level_find'][OlivOS.diagnoseAPI.level_dict[level_this]] = level_this
+            level_name = OlivOS.diagnoseAPI.level_dict[level_this]
+            self.UIData['level_list'].append(level_name)
+            self.UIData['level_find'][level_name] = level_this
         self.UIObject['root_level']['value'] = tuple(self.UIData['level_list'])
         self.UIObject['root_level'].current(self.UIData['level_list'].index(self.UIData['level_default']))
 
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15 + 70 + 8,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=900,
-            height=24,
-            action=None,
-            title='输入'
+    def _build_input_area(self):
+        # 输入框占据第1列（共3列，tree占2列，这里需要调整）
+        self._root_Entry_init(
+            obj_root='root', obj_name='root_input', str_name='root_input_StringVar',
+            x=15 + 70 + 8, y=self._get_input_y(), width_t=0, width=0,
+            height=24, action=None, title='输入'
         )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
+        self.UIObject['root_input'].bind("<Return>", self._root_Entry_enter_Func('root_input'))
         self.UIObject['root_input'].grid(
-            row=1,
-            column=1,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=2
+            row=1, column=1, sticky="we", rowspan=1, columnspan=3,
+            padx=(0, 15), pady=(8, 15), ipadx=0, ipady=2
         )
 
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stopManual)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        # 右键设置的选择在后续流程中未生效，不知为何，等后续解决
-        # iid = self.UIObject['tree'].identify_row(event.y)
-        # self.UIObject['tree'].selection_set(iid)
-        # self.UIObject['tree'].update()
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                tkinter.messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-
-    def root_resize(self, event=None):
-        pass
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(event):
-            self.root_Entry_enter(name, event)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) > 0:
-                #    self.root.setGoCqhttpModelSend(self.bot.hash, input)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if len(input_data) > 0:
+                # 原代码中此处无实际操作，保留空实现
                 pass
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name]
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
+    def _root_resize(self, event=None):
+        pass
 
-    def tree_edit_UI_Combobox_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        # self.UIObject[obj_name + '=Label'].place(
-        #    x = x - width_t,
-        #    y = y,
-        #    width = width_t,
-        #    height = height
-        # )
+    def _tree_edit_UI_Combobox_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
+        self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
+        self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
         self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = ttk.Combobox(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name]
-        )
-        # self.UIObject[obj_name].place(
-        #    x = x,
-        #    y = y,
-        #    width = width,
-        #    height = height
-        # )
+        self.UIObject[obj_name] = ttk.Combobox(self.UIObject[obj_root], textvariable=self.UIData[str_name])
         self.UIObject[obj_name].configure(state='readonly')
-        # self.UIObject[obj_name].bind(
-        #     '<<ComboboxSelected>>', lambda x: self.tree_edit_UI_Combobox_ComboboxSelected(x, action, obj_name)
-        # )
 
-    def tree_init_line(self):
+    def _tree_init_line(self):
+        # 从 root 中读取历史日志
         tmp_count_old = 0
-        tmp_count_new = len(self.root.UIObject['root_OlivOS_terminal_data'])
+        tmp_count_new = len(self.root.UIObject.get('root_OlivOS_terminal_data', []))
         try:
             while tmp_count_old < tmp_count_new:
-                for line in self.root.UIObject['root_OlivOS_terminal_data'].copy()[tmp_count_old:tmp_count_new]:
+                for line in self.root.UIObject['root_OlivOS_terminal_data'][tmp_count_old:tmp_count_new]:
                     self.tree_add_line(line)
                 tmp_count_old = tmp_count_new
                 tmp_count_new = len(self.root.UIObject['root_OlivOS_terminal_data'])
@@ -3142,692 +1891,268 @@ class OlivOSTerminalUI(object):
             pass
 
     def tree_add_line(self, data):
+        """重写日志添加，支持等级过滤和带时间戳的格式"""
         data_raw = data['data']
         select_level = self.UIData['level_find'][self.UIData['root_level_StringVar'].get()]
         this_level = data_raw['log_level']
         if select_level <= this_level:
             data_str = data['str']
             data_str = data_str.encode(encoding='gbk', errors='replace').decode(encoding='gbk', errors='replace')
-            res_data = data_str
-            data_str = data_str.replace('\r', '\\r')
-            data_str = data_str.replace('\n', '\\n')
-            sig_list = data_raw['log_segment']
-            sig_01 = ''
-            sig_02 = ''
-            sig_03 = ''
-            if len(sig_list) >= 1:
-                sig_03 = sig_list[0][0]
-            if len(sig_list) >= 2:
-                sig_02, sig_03 = sig_03, sig_list[1][0]
-            if len(sig_list) >= 3:
-                sig_01, sig_02, sig_03 = sig_02, sig_03, sig_list[2][0]  # noqa: F841
+            # 处理转义
+            data_str = data_str.replace('\r', '\\r').replace('\n', '\\n')
             log_level = OlivOS.diagnoseAPI.level_dict[data_raw['log_level']]
-            if len(res_data) > 0:
+            time_str = datetime.datetime.fromtimestamp(int(data_raw['log_time'])).strftime("%Y-%m-%d %H:%M:%S")
+            display_str = f"{time_str} - {log_level} - {data_str}"
+            if len(display_str) > 0:
                 try:
                     iid = self.UIObject['tree'].insert(
-                        '',
-                        tkinter.END,
-                        text=res_data,
-                        values=(
-                            (
-                                f"{str(datetime.datetime.fromtimestamp(int(data_raw['log_time'])))}"
-                                f" - {log_level} - {data_str}"
-                            ),
-                        ),
+                        '', tkinter.END,
+                        text=data_str,
+                        values=(display_str,),
                         tag=log_level
                     )
                     keep_tree_thin(self.UIObject['tree'])
-                    if self.UIData['flag_tree_is_bottom']:
+                    if self.UIData.get('flag_tree_is_bottom', True):
                         self.UIObject['tree'].see(iid)
-                        # self.UIObject['tree'].update()
                 except Exception:
                     pass
 
-    def stopManual(self):
-        # 手动关闭时要给用户气泡，不然有些用户不知道自己还开着
+    def stop(self):
+        """手动关闭时给通知"""
         try:
-            self.root.UIObject['root_shallow'].UIObject['shallow_root'].notify(
-                '已最小化至托盘'
-            )
+            self.root.UIObject['root_shallow'].UIObject['shallow_root'].notify('已最小化至托盘')
         except Exception:
             pass
-        self.stop()
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
+        super().stop()
 
     def exit(self):
         self.root.UIObject['root_OlivOS_terminal'] = None
 
 
-class VirtualTerminalUI(object):
-    class VirtualTerminalUI_AccountEdit(object):
-        def __init__(self, Model_name, root: "VirtualTerminalUI", root_tk=None, bot=None):
-            self.Model_name = Model_name
-            self.root = root
-            self.root_tk = root_tk
-            self.bot = bot
-            self.UIObject = {}
-            self.UIData = {}
-            # 由于 root 在 start 后才会初始化，故在之后调用
-            # self.userConfDataInit(self.root.user_conf_data)
-            self.UIConfig = {}
-            self.UIConfig.update(dictColorContext)
+class VirtualTerminalUI(BaseTerminalUI):
+    WINDOW_TITLE = "Virtual Terminal 终端"
+    WINDOW_SIZE = "800x600"
 
-        def start(self):
-            self.UIObject['root'] = tkinter.Toplevel(
-                master=self.root.UIObject['root'],
-                bg=self.UIConfig['color_001']
-            )
-            self.UIObject['root'].title('账号编辑 - %s' % str(self.bot.id))
-            self.UIObject['root'].geometry('300x210')
-            self.UIObject['root'].minsize(300, 210)
-            self.UIObject['root'].resizable(
-                width=False,
-                height=False
-            )
-            self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
-            self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-            self.userConfDataInit(self.root.user_conf_data)
-
-            self.root_Entry_init(
-                obj_root='root',
-                obj_name='root_entry_user_name',
-                str_name='StringVar_user_name',
-                x=15 + 80,
-                y=15 + 30 * 0,
-                width_t=80,
-                width=300 - 15 * 2 - 80,
-                height=24,
-                action=None,
-                title='账号名称:\t',
-            )
-
-            self.root_Entry_init(
-                obj_root='root',
-                obj_name='root_entry_user_id',
-                str_name='StringVar_user_id',
-                x=15 + 80,
-                y=15 + 30 * 1,
-                width_t=80,
-                width=300 - 15 * 2 - 80,
-                height=24,
-                action=None,
-                title='账号ID:\t',
-            )
-
-            def root_checkbutton_flag_action_Func(str_name):
-                def resFunc():
-                    self.UIData[str_name].set(
-                        not self.UIData[str_name].get()
-                    )
-                return resFunc
-
-            self.init_style()
-            self.root_Checkbutton_init(
-                obj_root='root',
-                obj_name='root_checkbutton_flag_group',
-                str_name='BoolVar_flag_group',
-                x=15 + 80,
-                y=15 + 30 * 2,
-                width_t=80,
-                width=300 - 15 * 2 - 80,
-                height=24,
-                action=root_checkbutton_flag_action_Func('BoolVar_flag_group'),
-                title='是否为群:\t',
-            )
-
-            self.root_Entry_init(
-                obj_root='root',
-                obj_name='root_entry_group_id',
-                str_name='StringVar_group_id',
-                x=15 + 80,
-                y=15 + 30 * 3,
-                width_t=80,
-                width=300 - 15 * 2 - 80,
-                height=24,
-                action=None,
-                title='群组ID:\t',
-            )
-
-            self.root_ComboBox_init(
-                obj_root='root',
-                obj_name='root_combobox_group_role',
-                str_name='StringVar_group_role',
-                x=15 + 80,
-                y=15 + 30 * 4,
-                width_t=80,
-                width=300 - 15 * 2 - 80,
-                height=24,
-                action=["owner", "admin", "member", "unknown"],
-                title='群组角色:\t',
-            )
-
-            self.root_Button_init(
-                name='root_button_save',
-                text='保存并返回',
-                command=self.root_button_save_Func(),
-                x=15 + 80,
-                y=15 + 30 * 5,
-                width=300 - 15 * 2 - 80,
-                height=24
-            )
-
-            self.UIObject['root'].mainloop()
-
-            self.stop()
-
-        def root_button_save_Func(self):
-            def resFunc():
-                self.setUserConfDataFunc()
-                # print(self.root.user_conf_data)
-                self.stop()
-            return resFunc
-
-        def userConfDataInit(self, datadict):
-            """
-                根据 VirtualTerminalUI 的用户信息，初始化编辑界面中的用户信息数据
-            """
-            self.UIData['StringVar_user_name'] = tkinter.StringVar(
-                master=self.UIObject['root'],
-                name='StringVar_user_name',
-                value=datadict['user_name']
-            )
-            self.UIData['StringVar_user_id'] = tkinter.StringVar(
-                master=self.UIObject['root'],
-                name='StringVar_user_id',
-                value=datadict['user_id']
-            )
-            self.UIData['BoolVar_flag_group'] = tkinter.BooleanVar(
-                master=self.UIObject['root'],
-                name='BoolVar_flag_group',
-                value=datadict['flag_group']
-            )
-            self.UIData['StringVar_group_id'] = tkinter.StringVar(
-                master=self.UIObject['root'],
-                name='StringVar_group_id',
-                value=datadict['group_id']
-            )
-            self.UIData['StringVar_group_role'] = tkinter.StringVar(
-                master=self.UIObject['root'],
-                name='StringVar_group_role',
-                value=datadict['group_role']
-            )
-
-        def setUserConfDataFunc(self):
-            """
-                根据编辑界面中的用户信息数据，更新 VirtualTerminalUI 的用户信息
-            """
-            tmp_data = {}
-            tmp_data['user_name'] = self.UIData['StringVar_user_name'].get()
-            tmp_data['user_id'] = self.UIData['StringVar_user_id'].get()
-            tmp_data['flag_group'] = self.UIData['BoolVar_flag_group'].get()
-            tmp_data['group_id'] = self.UIData['StringVar_group_id'].get()
-            tmp_data['group_role'] = self.UIData['StringVar_group_role'].get()
-            if tmp_data['flag_group']:
-                tmp_data['target_id'] = self.UIData['StringVar_group_id'].get()
-
-            else:
-                tmp_data['target_id'] = self.root.bot.id        # 当为私聊消息时，target_id 为 bot 的 id
-            self.root.user_conf_data = tmp_data
-
-        def buttom_action(self, name, action):
-            if name in self.UIObject:
-                if action == '<Enter>':
-                    self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-                if action == '<Leave>':
-                    self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-        def root_Button_init(self, name, text, command, x, y, width, height):
-            self.UIObject[name] = tkinter.Button(
-                self.UIObject['root'],
-                text=text,
-                command=command,
-                bd=0,
-                activebackground=self.UIConfig['color_002'],
-                activeforeground=self.UIConfig['color_001'],
-                bg=self.UIConfig['color_003'],
-                fg=self.UIConfig['color_004'],
-                relief='groove'
-            )
-            self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-            self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-            self.UIObject[name].place(
-                x=x,
-                y=y,
-                width=width,
-                height=height
-            )
-
-        def init_style(self):
-            self.UIData['style'] = ttk.Style(self.UIObject['root'])
-            self.UIData['style'].configure(
-                "TCheckbutton",
-                indicatorbackground=self.UIConfig['color_001'],
-                indicatorforeground=self.UIConfig['color_004'],
-                background=self.UIConfig['color_001'],
-                foreground=self.UIConfig['color_004']
-            )
-            # self.UIData['style'].map("TCheckbutton", background=[("active", "darkgrey")])
-
-        def root_Checkbutton_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
-            self.UIObject[obj_name + '=Label'] = tkinter.Label(
-                self.UIObject[obj_root],
-                text=title
-            )
-            self.UIObject[obj_name + '=Label'].configure(
-                bg=self.UIConfig['color_001'],
-                fg=self.UIConfig['color_004']
-            )
-            self.UIObject[obj_name + '=Label'].place(
-               x=x - width_t,
-               y=y,
-               width=width_t,
-               height=height
-            )
-            # self.UIData[str_name] = tkinter.BooleanVar(
-            #     master=self.UIObject[obj_name],
-            #     name=str_name,
-            # )
-            self.UIObject[obj_name] = ttk.Checkbutton(
-                self.UIObject[obj_root],
-                variable=self.UIData[str_name],
-                onvalue=True,
-                offvalue=False,
-                style='TCheckbutton'
-            )
-            # self.UIObject[obj_name].configure(
-            #     bg=self.UIConfig['color_001'],
-            #     fg=self.UIConfig['color_004'],
-            #     bd=0
-            # )
-            self.UIObject[obj_name].place(
-               x=x,
-               y=y
-            )
-
-        def root_ComboBox_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
-            self.UIObject[obj_name] = tkinter.Label(
-                self.UIObject[obj_root],
-                bg=self.UIConfig['color_001'],
-                width=width,
-                height=height
-            )
-            self.UIObject[obj_name + '=Label'] = tkinter.Label(
-                self.UIObject[obj_root],
-                text=title
-            )
-            self.UIObject[obj_name + '=Label'].configure(
-                bg=self.UIConfig['color_001'],
-                fg=self.UIConfig['color_004']
-            )
-            self.UIObject[obj_name + '=Label'].place(
-               x=x - width_t,
-               y=y,
-               width=width_t,
-               height=height
-            )
-            # self.UIData[str_name] = tkinter.StringVar(
-            #     master=self.UIObject[obj_name],
-            #     name=str_name,
-            # )
-            self.UIObject[obj_name] = ttk.Combobox(
-                self.UIObject[obj_root],
-                textvariable=self.UIData[str_name],
-                values=action,
-                state='readonly',
-            )
-            # self.UIObject[obj_name].configure(
-            #     bg=self.UIConfig['color_004'],
-            #     fg=self.UIConfig['color_005'],
-            #     bd=0
-            # )
-            self.UIObject[obj_name].place(
-               x=x,
-               y=y,
-               width=width,
-               height=height
-            )
-
-        def root_Entry_init(
-            self, obj_root, obj_name, str_name, x, y, width_t, width, height, action,
-            title='',
-            mode='NONE'
-        ):
-            self.UIObject[obj_name + '=Label'] = tkinter.Label(
-                self.UIObject[obj_root],
-                text=title
-            )
-            self.UIObject[obj_name + '=Label'].configure(
-                bg=self.UIConfig['color_001'],
-                fg=self.UIConfig['color_004']
-            )
-            self.UIObject[obj_name + '=Label'].place(
-               x=x - width_t,
-               y=y,
-               width=width_t,
-               height=height
-            )
-            self.UIObject[obj_name] = tkinter.Entry(
-                self.UIObject[obj_root],
-                textvariable=self.UIData[str_name]
-            )
-            self.UIObject[obj_name].configure(
-                bg=self.UIConfig['color_004'],
-                fg=self.UIConfig['color_005'],
-                bd=0
-            )
-            self.UIObject[obj_name].place(
-               x=x,
-               y=y,
-               width=width,
-               height=height
-            )
-            if mode == 'SAFE':
-                self.UIObject[obj_name].configure(
-                    show='●'
-                )
-
-        def stop(self):
-            self.exit()
-            self.UIObject['root'].destroy()
-
-        def exit(self):
-            self.root.UIObject["root_terminal_account_edit"] = None
-
-    def __init__(self, Model_name, logger_proc, root: dock, root_tk=None, bot=None):
-        self.Model_name = Model_name
-        self.root = root
-        self.root_tk = root_tk
-        self.bot = bot
-        self.UIObject = {}
-        self.UIData = {}
-        self.UIConfig = {}
-        self.logger_proc = logger_proc
-        self.UIConfig.update(dictColorContext)
+    def __init__(self, Model_name, logger_proc, root, root_tk=None, bot=None):
+        super().__init__(Model_name, logger_proc, root, root_tk, bot)
         self.user_conf_data = {
-            "user_name": "仑质",
-            "user_id": "88888888",
-            "flag_group": True,
-            "group_id": "88888888",
-            "group_role": "owner",
+            "user_name": "仑质", "user_id": "88888888", "flag_group": True,
+            "group_id": "88888888", "group_role": "owner", "target_id": "88888888"
         }
-        self.user_conf_data["target_id"] = self.user_conf_data["group_id"]
 
-    def start(self):
-        self.UIObject['root'] = tkinter.Toplevel()
-        self.UIObject['root'].title('Virtual Terminal 终端 - %s' % str(self.bot.id))
-        self.UIObject['root'].geometry('800x600')
-        self.UIObject['root'].minsize(800, 600)
-        self.UIObject['root'].grid_rowconfigure(0, weight=15)
-        self.UIObject['root'].grid_rowconfigure(1, weight=0)
-        self.UIObject['root'].grid_columnconfigure(0, weight=0)
-        self.UIObject['root'].grid_columnconfigure(1, weight=2)
-        self.UIObject['root'].grid_columnconfigure(2, weight=2)
-        self.UIObject['root'].grid_columnconfigure(3, weight=0)
-        self.UIObject['root'].resizable(
-            width=True,
-            height=True
-        )
-        self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
+    def _add_extra_menu_items(self):
+        self.UIObject['tree_rightkey_menu'].add_command(label='编辑账号', command=lambda: self._rightKey_action('account'))
 
-        self.UIObject['style'] = ttk.Style()
-        fix_Treeview_color(self.UIObject['style'])
+    def _rightKey_action(self, action: str):
+        if action == 'account':
+            self._root_AccountEdit_init()
+        else:
+            super()._rightKey_action(action)
 
-        self.UIObject['tree'] = ttk.Treeview(self.UIObject['root'])
-        self.UIObject['tree']['show'] = 'headings'
-        self.UIObject['tree']['columns'] = ('DATA')
-        self.UIObject['tree'].column('DATA', width=800 - 15 * 2 - 18 - 5)
-        self.UIObject['tree'].heading('DATA', text='日志')
-        self.UIObject['tree']['selectmode'] = 'browse'
-        self.UIObject['tree_rightkey_menu'] = tkinter.Menu(self.UIObject['root'], tearoff=False)
-        self.UIObject['tree'].bind('<Button-3>', lambda x: self.tree_rightKey(x))
-        self.UIObject['tree'].grid(
-            row=0,
-            column=0,
-            sticky="nsew",
-            rowspan=1,
-            columnspan=3,
-            padx=(15, 0),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIObject['tree_yscroll'] = ttk.Scrollbar(
-            self.UIObject['root'],
-            orient="vertical",
-            command=self.UIObject['tree'].yview
-        )
-        self.UIObject['tree_yscroll'].grid(
-            row=0,
-            column=3,
-            sticky="nsw",
-            rowspan=1,
-            columnspan=1,
-            padx=(0, 15),
-            pady=(15, 0),
-            ipadx=0,
-            ipady=0
-        )
-        self.UIData['flag_tree_is_bottom'] = True
-        self.UIObject['tree'].configure(
-            yscrollcommand=self.scroll_onChange(self.UIObject['tree_yscroll'].set)
-        )
-
-        self.root_Entry_init(
-            obj_root='root',
-            obj_name='root_input',
-            str_name='root_input_StringVar',
-            x=15,
-            y=600 - 15 * 1 - 24,
-            width_t=0,
-            width=800 - 15 * 2,
-            height=24,
-            action=None,
-            title='输入'
-        )
-        self.UIObject['root_input'].bind("<Return>", self.root_Entry_enter_Func('root_input'))
-        self.UIObject['root_input'].grid(
-            row=1,
-            column=0,
-            sticky="s",
-            rowspan=1,
-            columnspan=2,
-            padx=(15, 0),
-            pady=(8, 15),
-            ipadx=0,
-            ipady=4
-        )
-
-        self.root_Button_init(
-            name='root_button_save',
-            text='>',
-            command=self.root_Entry_enter_Func('root_input'),
-            x=800 - 15 * 2 - 5,
-            y=600 - 15 * 1 - 24,
-            width=16,
-            height=1
-        )
-        self.UIObject['root_button_save'].grid(
-            row=1,
-            column=2,
-            sticky="swe",
-            rowspan=1,
-            columnspan=2,
-            padx=(0, 15),
-            pady=(8, 15),
-            ipadx=8,
-            ipady=0
-        )
-
-        self.UIObject['root'].iconbitmap('./resource/tmp_favoricon.ico')
-        self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
-
-        self.tree_init_line()
-
-        self.UIObject['root'].mainloop()
-
-        self.exit()
-
-    def scroll_onChange(self, command):
-        def res(*arg, **kwarg):
-            if arg[1] == '1.0':
-                self.UIData['flag_tree_is_bottom'] = True
-            else:
-                self.UIData['flag_tree_is_bottom'] = False
-            return command(*arg, **kwarg)
-        return res
-
-    def tree_rightKey(self, event):
-        self.UIObject['tree_rightkey_menu'].delete(0, tkinter.END)
-        self.UIObject['tree_rightkey_menu'].add_command(label='查看', command=lambda: self.rightKey_action('show'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='复制', command=lambda: self.rightKey_action('copy'))
-        self.UIObject['tree_rightkey_menu'].add_command(label='编辑账号', command=lambda: self.rightKey_action('account'))
-        self.UIObject['tree_rightkey_menu'].post(event.x_root, event.y_root)
-
-    def rightKey_action(self, action: str):
-        if action == 'show':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                msg = msg.replace('\\ ', ' ')
-                messagebox.showinfo('日志内容', msg)
-        elif action == 'copy':
-            msg = get_tree_force(self.UIObject['tree'])['text']
-            if len(msg) > 0:
-                msg = msg.replace('\\ ', ' ')
-                self.UIObject['root'].clipboard_clear()
-                self.UIObject['root'].clipboard_append(msg)
-                self.UIObject['root'].update()
-        elif action == 'account':
-            self.root_AccountEdit_init()
-
-    def root_AccountEdit_init(self):
-        """
-            用于初始化账号编辑界面(如果存在则关闭后重新打开)
-        """
-        if "root_terminal_account_edit" not in self.UIObject:
-            self.UIObject["root_terminal_account_edit"] = None
-        elif self.UIObject['root_terminal_account_edit'] is not None:
+    def _root_AccountEdit_init(self):
+        if "root_terminal_account_edit" not in self.UIObject or self.UIObject['root_terminal_account_edit'] is None:
+            self.UIObject['root_terminal_account_edit'] = self._VirtualTerminalUI_AccountEdit(
+                Model_name=self.Model_name, root=self, root_tk=self.root_tk, bot=self.bot
+            )
+            self.UIObject['root_terminal_account_edit'].start()
+        else:
             self.UIObject['root_terminal_account_edit'].stop()
+            self.UIObject['root_terminal_account_edit'] = None
+            self._root_AccountEdit_init()
 
-        self.UIObject['root_terminal_account_edit'] = self.VirtualTerminalUI_AccountEdit(
-            Model_name=self.Model_name,
-            root=self,
-            root_tk=self.root_tk,
-            bot=self.bot
-        )
-        self.UIObject['root_terminal_account_edit'].start()
-
-    def root_Entry_enter_Func(self, name):
-        def resFunc(*arg, **kwarg):
-            self.root_Entry_enter(name, None)
-
-        return resFunc
-
-    def root_Entry_enter(self, name, event):
+    def _root_Entry_enter(self, name, event):
         if name == 'root_input':
-            input = self.UIData['root_input_StringVar'].get()
-            if len(input) > 0 and len(input) < 1000:
-                self.root.setVirtualModelSend(self.bot.hash, input, self.user_conf_data)
+            input_data = self.UIData['root_input_StringVar'].get()
+            if 0 < len(input_data) < 1000:
+                self.root.setVirtualModelSend(self.bot.hash, input_data, self.user_conf_data)
             self.UIData['root_input_StringVar'].set('')
 
-    def root_Entry_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title='',
-                        mode='NONE'):
-        self.UIObject[obj_name + '=Label'] = tkinter.Label(
-            self.UIObject[obj_root],
-            text=title
-        )
-        self.UIObject[obj_name + '=Label'].configure(
-            bg=self.UIConfig['color_001'],
-            fg=self.UIConfig['color_004']
-        )
-        self.UIData[str_name] = tkinter.StringVar()
-        self.UIObject[obj_name] = tkinter.Entry(
-            self.UIObject[obj_root],
-            textvariable=self.UIData[str_name],
-            font=('TkDefaultFont 12')
-        )
-        self.UIObject[obj_name].configure(
-            bg=self.UIConfig['color_004'],
-            fg=self.UIConfig['color_005'],
-            bd=0
-        )
-        if mode == 'SAFE':
-            self.UIObject[obj_name].configure(
-                show='●'
-            )
-        self.UIObject[obj_name].configure(
-            width=width
-        )
-
-    def tree_init_line(self):
-        if self.bot.hash in self.root.UIObject['root_virtual_terminal_terminal_data']:
+    def _tree_init_line(self):
+        if self.bot.hash in self.root.UIObject.get('root_virtual_terminal_terminal_data', {}):
             for line in self.root.UIObject['root_virtual_terminal_terminal_data'][self.bot.hash]:
                 self.tree_add_line(line)
 
     def tree_add_line(self, data, user_conf=None):
+        """重写以显示用户信息头"""
         res_data = data['data']
         if user_conf is None:
-            user_conf = data["user_conf"]
+            user_conf = data.get("user_conf", self.user_conf_data)
         res_data = res_data.encode(encoding='gb2312', errors='replace').decode(encoding='gb2312', errors='replace')
-        res_data = res_data.replace(' ', r'\ ')
-        res_data = res_data.replace('\r\n', '\n')
+        res_data = res_data.replace(' ', r'\ ').replace('\r\n', '\n')
         if not user_conf['flag_group']:
-            data_header = f"<{user_conf['user_name']}> ({user_conf['user_id']}) -> (用户: {user_conf['target_id']})"
+            header = f"<{user_conf['user_name']}> ({user_conf['user_id']}) -> (用户: {user_conf['target_id']})"
         else:
-            data_header = f"<{user_conf['user_name']}> ({user_conf['user_id']}) -> (群: {user_conf['target_id']})"
-        data_header = data_header.replace(' ', r'\ ')
-        data_header = data_header.replace('\r\n', '\n')
-        res_data = '%s\n%s\n%s' % (data_header, res_data, '-' * 25)
-        res_data_list = res_data.split('\n')
-        for res_data_list_this in res_data_list:
+            header = f"<{user_conf['user_name']}> ({user_conf['user_id']}) -> (群: {user_conf['target_id']})"
+        header = header.replace(' ', r'\ ').replace('\r\n', '\n')
+        full = f"{header}\n{res_data}\n{'-'*25}"
+        for line in full.split('\n'):
             try:
-                iid = self.UIObject['tree'].insert(
-                    '',
-                    tkinter.END,
-                    text=res_data_list_this,
-                    values=(
-                        res_data_list_this
-                    )
-                )
+                iid = self.UIObject['tree'].insert('', tkinter.END, text=line, values=(line,))
                 keep_tree_thin(self.UIObject['tree'])
-                if self.UIData['flag_tree_is_bottom']:
+                if self.UIData.get('flag_tree_is_bottom', True):
                     self.UIObject['tree'].see(iid)
-                    # self.UIObject['tree'].update()
             except Exception:
                 pass
 
-    def buttom_action(self, name, action):
-        if name in self.UIObject:
-            if action == '<Enter>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_006'])
-            if action == '<Leave>':
-                self.UIObject[name].configure(bg=self.UIConfig['color_003'])
-
-    def root_Button_init(self, name, text, command, x, y, width, height):
-        self.UIObject[name] = tkinter.Button(
-            self.UIObject['root'],
-            text=text,
-            command=command,
-            bd=0,
-            activebackground=self.UIConfig['color_002'],
-            activeforeground=self.UIConfig['color_001'],
-            bg=self.UIConfig['color_003'],
-            fg=self.UIConfig['color_004'],
-            relief='groove',
-            height=height
-        )
-        self.UIObject[name].bind('<Enter>', lambda x: self.buttom_action(name, '<Enter>'))
-        self.UIObject[name].bind('<Leave>', lambda x: self.buttom_action(name, '<Leave>'))
-
-    def stop(self):
-        self.exit()
-        self.UIObject['root'].destroy()
-
     def exit(self):
-        self.root.UIObject['root_virtual_terminal_terminal'].pop(self.bot.hash)
+        self.root.UIObject['root_virtual_terminal_terminal'].pop(self.bot.hash, None)
+
+    # ---------- 内部类：账号编辑窗口 ----------
+    class _VirtualTerminalUI_AccountEdit(BaseTerminalUI):
+        """内部类，用于编辑虚拟账号信息，也继承基类以复用部分UI逻辑"""
+        WINDOW_SIZE = "300x210"
+        MIN_SIZE = (300, 210)
+        HAS_SEND_BUTTON = False
+
+        def __init__(self, Model_name, root: "VirtualTerminalUI", root_tk=None, bot=None):
+            # 注意：这里的 root 是 VirtualTerminalUI 实例，不是外层的 dock
+            super().__init__(Model_name, root.logger_proc, root, root_tk, bot)
+            self.parent_virtual = root
+
+        def start(self):
+            self._build_main_window()
+            self._build_edit_fields()
+            self._build_save_button()
+            self.UIObject['root'].mainloop()
+            self.stop()
+
+        def _build_main_window(self):
+            self.UIObject['root'] = tkinter.Toplevel(
+                master=self.parent_virtual.UIObject['root'],
+                bg=self.UIConfig['color_001']
+            )
+            self.UIObject['root'].title(f'账号编辑 - {str(self.bot.id)}')
+            self.UIObject['root'].geometry(self.WINDOW_SIZE)
+            self.UIObject['root'].minsize(*self.MIN_SIZE)
+            self.UIObject['root'].resizable(width=False, height=False)
+            self.UIObject['root'].configure(bg=self.UIConfig['color_001'])
+            self.UIObject['root'].protocol("WM_DELETE_WINDOW", self.stop)
+
+        def _build_edit_fields(self):
+            # 账号名称
+            self._root_Entry_init(
+                obj_root='root', obj_name='root_entry_user_name', str_name='StringVar_user_name',
+                x=15+80, y=15+30*0, width_t=80, width=300-15*2-80, height=24,
+                action=None, title='账号名称:\t'
+            )
+            # 账号ID
+            self._root_Entry_init(
+                obj_root='root', obj_name='root_entry_user_id', str_name='StringVar_user_id',
+                x=15+80, y=15+30*1, width_t=80, width=300-15*2-80, height=24,
+                action=None, title='账号ID:\t'
+            )
+            # 是否为群复选框
+            self.UIData['BoolVar_flag_group'] = tkinter.BooleanVar()
+            self._root_Checkbutton_init(
+                obj_root='root', obj_name='root_checkbutton_flag_group', str_name='BoolVar_flag_group',
+                x=15+80, y=15+30*2, width_t=80, width=300-15*2-80, height=24,
+                action=lambda: self.UIData['BoolVar_flag_group'].set(not self.UIData['BoolVar_flag_group'].get()),
+                title='是否为群:\t'
+            )
+            # 群组ID
+            self._root_Entry_init(
+                obj_root='root', obj_name='root_entry_group_id', str_name='StringVar_group_id',
+                x=15+80, y=15+30*3, width_t=80, width=300-15*2-80, height=24,
+                action=None, title='群组ID:\t'
+            )
+            # 群组角色下拉框
+            self._root_ComboBox_init(
+                obj_root='root', obj_name='root_combobox_group_role', str_name='StringVar_group_role',
+                x=15+80, y=15+30*4, width_t=80, width=300-15*2-80, height=24,
+                action=["owner", "admin", "member", "unknown"], title='群组角色:\t'
+            )
+            # 加载现有数据
+            self._userConfDataInit(self.parent_virtual.user_conf_data)
+
+        def _build_save_button(self):
+            self._root_Button_init(
+                name='root_button_save', text='保存并返回', command=self._save_and_close,
+                x=15+80, y=15+30*5, width=300-15*2-80, height=24
+            )
+            self.UIObject['root_button_save'].place(x=15+80, y=15+30*5, width=300-15*2-80, height=24)
+
+        def _root_Checkbutton_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
+            # 简化版复选框初始化
+            self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
+            self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
+            self.UIObject[obj_name + '=Label'].place(x=x-width_t, y=y, width=width_t, height=height)
+            self.UIObject[obj_name] = ttk.Checkbutton(
+                self.UIObject[obj_root], variable=self.UIData[str_name], onvalue=True, offvalue=False
+            )
+            self.UIObject[obj_name].place(x=x, y=y)
+
+        def _root_ComboBox_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
+            self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
+            self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
+            self.UIObject[obj_name + '=Label'].place(x=x-width_t, y=y, width=width_t, height=height)
+            self.UIData[str_name] = tkinter.StringVar()
+            self.UIObject[obj_name] = ttk.Combobox(
+                self.UIObject[obj_root], textvariable=self.UIData[str_name], values=action, state='readonly'
+            )
+            self.UIObject[obj_name].place(x=x, y=y, width=width, height=height)
+
+        def _root_Entry_init(
+            self, obj_root, obj_name, str_name, x, y, width_t, width, height, action,
+            title='',
+            mode='NONE'
+        ):
+            # 带标签的Entry
+            self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
+            self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
+            self.UIObject[obj_name + '=Label'].place(x=x-width_t, y=y, width=width_t, height=height)
+            self.UIData[str_name] = tkinter.StringVar()
+            self.UIObject[obj_name] = tkinter.Entry(self.UIObject[obj_root], textvariable=self.UIData[str_name])
+            self.UIObject[obj_name].configure(bg=self.UIConfig['color_004'], fg=self.UIConfig['color_005'], bd=0)
+            if mode == 'SAFE':
+                self.UIObject[obj_name].configure(show='●')
+            self.UIObject[obj_name].place(x=x, y=y, width=width, height=height)
+
+        def _userConfDataInit(self, datadict):
+            """加载用户数据到界面"""
+            self.UIData['StringVar_user_name'].set(datadict['user_name'])
+            self.UIData['StringVar_user_id'].set(datadict['user_id'])
+            self.UIData['BoolVar_flag_group'].set(datadict['flag_group'])
+            self.UIData['StringVar_group_id'].set(datadict['group_id'])
+            self.UIData['StringVar_group_role'].set(datadict['group_role'])
+
+        def _save_and_close(self):
+            """保存修改并关闭"""
+            tmp = {
+                'user_name': self.UIData['StringVar_user_name'].get(),
+                'user_id': self.UIData['StringVar_user_id'].get(),
+                'flag_group': self.UIData['BoolVar_flag_group'].get(),
+                'group_id': self.UIData['StringVar_group_id'].get(),
+                'group_role': self.UIData['StringVar_group_role'].get(),
+            }
+            tmp['target_id'] = tmp['group_id'] if tmp['flag_group'] else self.bot.id
+            self.parent_virtual.user_conf_data = tmp
+            self.stop()
+
+        def _root_Button_init(self, name, text, command, x, y, width, height):
+            # 使用place布局的按钮
+            self.UIObject[name] = tkinter.Button(
+                self.UIObject['root'], text=text, command=command, bd=0,
+                activebackground=self.UIConfig['color_002'], activeforeground=self.UIConfig['color_001'],
+                bg=self.UIConfig['color_003'], fg=self.UIConfig['color_004'], relief='groove'
+            )
+            self.UIObject[name].bind('<Enter>', lambda e: self._button_action(name, '<Enter>'))
+            self.UIObject[name].bind('<Leave>', lambda e: self._button_action(name, '<Leave>'))
+            self.UIObject[name].place(x=x, y=y, width=width, height=height)
+
+        def _button_action(self, name, action):
+            if name in self.UIObject:
+                if action == '<Enter>':
+                    self.UIObject[name].configure(bg=self.UIConfig['color_006'])
+                elif action == '<Leave>':
+                    self.UIObject[name].configure(bg=self.UIConfig['color_003'])
+
+        def stop(self):
+            self.exit()
+            if self.UIObject.get('root'):
+                self.UIObject['root'].destroy()
+
+        def exit(self):
+            self.parent_virtual.UIObject["root_terminal_account_edit"] = None
 
 
 class shallow(object):
