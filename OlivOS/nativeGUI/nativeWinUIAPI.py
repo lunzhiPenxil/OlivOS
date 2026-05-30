@@ -1377,8 +1377,8 @@ class BaseTerminalUI:
     COLUMN_WEIGHTS = [(0, 0), (1, 2), (2, 2), (3, 0)]
     # 是否包含发送按钮 (有些子类可能不需要)
     HAS_SEND_BUTTON = True
-    # 是否包含输入框标签 (一般不需要，设为False)
-    HAS_INPUT_LABEL = False
+    # 是否包含输入框标签
+    HAS_INPUT_LABEL = True
 
     def __init__(self, Model_name, logger_proc=None, root=None, root_tk=None, bot=None):
         self.Model_name = Model_name
@@ -1397,7 +1397,8 @@ class BaseTerminalUI:
         self._build_main_window()
         self._build_tree()
         self._build_scrollbar()
-        self._build_input_area()
+        if self.HAS_INPUT_LABEL:
+            self._build_input_area()
         if self.HAS_SEND_BUTTON:
             self._build_send_button()
         self._build_extra_controls()   # 子类可添加额外控件
