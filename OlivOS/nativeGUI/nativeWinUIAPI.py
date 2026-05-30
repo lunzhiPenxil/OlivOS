@@ -2222,80 +2222,80 @@ class shallow(object):
                             default=(item_this[0] in ['打开终端'])
                         )
                     )
-                elif len(item_this) == 3:
-                    if (
-                        type(item_this[1]) is str
-                        and type(item_this[2]) is str
-                    ):
+                elif (
+                    len(item_this) == 3
+                    and type(item_this[1]) is str
+                    and type(item_this[2]) is str
+                ):
+                    list_new.append(
+                        pystray.MenuItem(
+                            item_this[0],
+                            self.root.sendPluginControlEventFunc(
+                                item_this[1],
+                                item_this[2]
+                            )
+                        )
+                    )
+                elif (
+                    len(item_this) == 4
+                    and type(item_this[1]) is str
+                    and type(item_this[2]) is str
+                    and type(item_this[3]) is str
+                ):
+                    if item_this[3] == 'gocqhttp':
                         list_new.append(
                             pystray.MenuItem(
                                 item_this[0],
-                                self.root.sendPluginControlEventFunc(
-                                    item_this[1],
-                                    item_this[2]
+                                self.root.startGoCqhttpTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
                         )
-                elif len(item_this) == 4:
-                    if (
-                        type(item_this[1]) is str
-                        and type(item_this[2]) is str
-                        and type(item_this[3]) is str
-                    ):
-                        if item_this[3] == 'gocqhttp':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startGoCqhttpTerminalUISendFunc(
-                                        item_this[1]
-                                    )
+                    elif item_this[3] == 'walleq':
+                        list_new.append(
+                            pystray.MenuItem(
+                                item_this[0],
+                                self.root.startWalleQTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
-                        elif item_this[3] == 'walleq':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startWalleQTerminalUISendFunc(
-                                        item_this[1]
-                                    )
+                        )
+                    elif item_this[3] == 'ComWeChatBotClient':
+                        list_new.append(
+                            pystray.MenuItem(
+                                item_this[0],
+                                self.root.startCWCBTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
-                        elif item_this[3] == 'ComWeChatBotClient':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startCWCBTerminalUISendFunc(
-                                        item_this[1]
-                                    )
+                        )
+                    elif item_this[3] == 'opqbot':
+                        list_new.append(
+                            pystray.MenuItem(
+                                item_this[0],
+                                self.root.startOPQBotTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
-                        elif item_this[3] == 'opqbot':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startOPQBotTerminalUISendFunc(
-                                        item_this[1]
-                                    )
+                        )
+                    elif item_this[3] == 'virtual_terminal':
+                        list_new.append(
+                            pystray.MenuItem(
+                                item_this[0],
+                                self.root.startVirtualTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
-                        elif item_this[3] == 'virtual_terminal':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startVirtualTerminalUISendFunc(
-                                        item_this[1]
-                                    )
+                        )
+                    elif item_this[3] == 'napcat':
+                        list_new.append(
+                            pystray.MenuItem(
+                                item_this[0],
+                                self.root.startNapCatTerminalUISendFunc(
+                                    item_this[1]
                                 )
                             )
-                        elif item_this[3] == 'napcat':
-                            list_new.append(
-                                pystray.MenuItem(
-                                    item_this[0],
-                                    self.root.startNapCatTerminalUISendFunc(
-                                        item_this[1]
-                                    )
-                                )
-                            )
+                        )
             if len(list_new) > 0:
                 return pystray.Menu(*list_new)
             else:
