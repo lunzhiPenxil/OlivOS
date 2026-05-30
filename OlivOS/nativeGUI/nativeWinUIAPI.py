@@ -171,442 +171,446 @@ class dock(OlivOS.API.Proc_templet):
                     rx_packet_data = self.Proc_info.rx_queue.get(block=False)
                 except Exception:
                     rx_packet_data = None
-                if rx_packet_data is not None:
-                    if type(rx_packet_data) is OlivOS.API.Control.packet:
-                        if rx_packet_data.action == 'send':
-                            if type(rx_packet_data.key) is dict:
-                                if 'data' in rx_packet_data.key:
-                                    if 'action' in rx_packet_data.key['data']:
-                                        if 'update_data' == rx_packet_data.key['data']['action']:
-                                            self.UIData.update(rx_packet_data.key['data']['data'])
-                                            self.updateShallowMenuList()
-                                        elif 'update_account_list' == rx_packet_data.key['data']['action']:
-                                            self.updateShallowMenuAccountList()
-                                            if self.UIObject['root_shallow'] is not None:
-                                                self.updateShallow()
-                                        elif 'start_shallow' == rx_packet_data.key['data']['action']:
-                                            if self.UIObject['root_shallow'] is None:
-                                                self.startShallow()
-                                                self.startOlivOSTerminalUISend()
-                                            else:
-                                                self.updateShallow()
-                                                self.updatePluginEdit()
-                                        elif 'show_update' == rx_packet_data.key['data']['action']:
-                                            self.UIObject['flag_have_update'] = True
-                                            self.updateShallowMenuList()
-                                            if self.UIObject['root_shallow'] is not None:
-                                                self.updateShallow()
-                                        elif 'account_edit' == rx_packet_data.key['data']['action']:
-                                            if (
-                                                'event' in rx_packet_data.key['data']
-                                                and 'account_edit_on' == rx_packet_data.key['data']['event']
-                                                and 'bot_info' in rx_packet_data.key['data']
-                                                and type(rx_packet_data.key['data']['bot_info']) is dict
-                                            ):
-                                                OlivOS.multiLoginUIAPI.run_HostUI_asayc(
-                                                    plugin_bot_info_dict=rx_packet_data.key['data']['bot_info'],
-                                                    control_queue=self.Proc_info.control_queue
-                                                )
-                                        elif 'plugin_edit_menu_on' == rx_packet_data.key['data']['action']:
-                                            self.startPluginEdit()
-                                        elif 'logger' == rx_packet_data.key['data']['action']:
-                                            self.UIObject['root_OlivOS_terminal_data'].append(
-                                                rx_packet_data.key['data']['data']
+                if rx_packet_data is None:
+                    pass
+                elif not type(rx_packet_data) is OlivOS.API.Control.packet:
+                    pass
+                elif (
+                    rx_packet_data.action == 'send'
+                    and type(rx_packet_data.key) is dict
+                    and 'data' in rx_packet_data.key
+                    and 'action' in rx_packet_data.key['data']
+                ):
+                    if 'update_data' == rx_packet_data.key['data']['action']:
+                        self.UIData.update(rx_packet_data.key['data']['data'])
+                        self.updateShallowMenuList()
+                    elif 'update_account_list' == rx_packet_data.key['data']['action']:
+                        self.updateShallowMenuAccountList()
+                        if self.UIObject['root_shallow'] is not None:
+                            self.updateShallow()
+                    elif 'start_shallow' == rx_packet_data.key['data']['action']:
+                        if self.UIObject['root_shallow'] is None:
+                            self.startShallow()
+                            self.startOlivOSTerminalUISend()
+                        else:
+                            self.updateShallow()
+                            self.updatePluginEdit()
+                    elif 'show_update' == rx_packet_data.key['data']['action']:
+                        self.UIObject['flag_have_update'] = True
+                        self.updateShallowMenuList()
+                        if self.UIObject['root_shallow'] is not None:
+                            self.updateShallow()
+                    elif 'account_edit' == rx_packet_data.key['data']['action']:
+                        if (
+                            'event' in rx_packet_data.key['data']
+                            and 'account_edit_on' == rx_packet_data.key['data']['event']
+                            and 'bot_info' in rx_packet_data.key['data']
+                            and type(rx_packet_data.key['data']['bot_info']) is dict
+                        ):
+                            OlivOS.multiLoginUIAPI.run_HostUI_asayc(
+                                plugin_bot_info_dict=rx_packet_data.key['data']['bot_info'],
+                                control_queue=self.Proc_info.control_queue
+                            )
+                    elif 'plugin_edit_menu_on' == rx_packet_data.key['data']['action']:
+                        self.startPluginEdit()
+                    elif 'logger' == rx_packet_data.key['data']['action']:
+                        self.UIObject['root_OlivOS_terminal_data'].append(
+                            rx_packet_data.key['data']['data']
+                        )
+                        if len(
+                            self.UIObject['root_OlivOS_terminal_data']
+                        ) > self.UIObject['root_OlivOS_terminal_data_max']:
+                            self.UIObject['root_OlivOS_terminal_data'].pop(0)
+                        if self.UIObject['root_OlivOS_terminal'] is not None:
+                            self.UIObject['root_OlivOS_terminal'].tree_add_line(
+                                rx_packet_data.key['data']['data']
+                            )
+                    elif 'napcat' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_napcat_menu_list'] is None:
+                                    self.UIData['shallow_napcat_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
                                             )
-                                            if len(
-                                                self.UIObject['root_OlivOS_terminal_data']
-                                            ) > self.UIObject['root_OlivOS_terminal_data_max']:
-                                                self.UIObject['root_OlivOS_terminal_data'].pop(0)
-                                            if self.UIObject['root_OlivOS_terminal'] is not None:
-                                                self.UIObject['root_OlivOS_terminal'].tree_add_line(
-                                                    rx_packet_data.key['data']['data']
-                                                )
-                                        elif 'napcat' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_napcat_menu_list'] is None:
-                                                        self.UIData['shallow_napcat_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_napcat_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'napcat'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startNapCatTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in self.UIObject['root_napcat_terminal_data']:
-                                                            self.UIObject['root_napcat_terminal_data'][hash] = []
-                                                        self.UIObject['root_napcat_terminal_data'][hash].append(
-                                                            rx_packet_data.key['data']['data']
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_napcat_terminal_data'][hash]
-                                                        ) > self.UIObject['root_napcat_terminal_data_max']:
-                                                            self.UIObject['root_napcat_terminal_data'][hash].pop(0)
-                                                        if hash in self.UIObject['root_napcat_terminal']:
-                                                            self.UIObject['root_napcat_terminal'][hash].tree_add_line(
-                                                                rx_packet_data.key['data']['data']
-                                                            )
-                                                elif 'qrcode' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'path' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash in self.bot_info:
-                                                            if hash in self.UIObject['root_qrcode_window']:
-                                                                try:
-                                                                    self.UIObject['root_qrcode_window'][hash].stop()
-                                                                except Exception:
-                                                                    pass
-                                                            self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
-                                                                Model_name='qrcode_window',
-                                                                logger_proc=self.Proc_info.logger_proc.log,
-                                                                root=self,
-                                                                root_tk=None,
-                                                                bot=self.bot_info[hash],
-                                                                path=rx_packet_data.key['data']['path']
-                                                            )
-                                                            self.UIObject['root_qrcode_window'][hash].start()
-                                                elif 'napcat_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startNapCatTerminalUI(rx_packet_data.key['data']['hash'])
-                                        elif 'gocqhttp' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_gocqhttp_menu_list'] is None:
-                                                        self.UIData['shallow_gocqhttp_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_gocqhttp_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'gocqhttp'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startGoCqhttpTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in self.UIObject['root_gocqhttp_terminal_data']:
-                                                            self.UIObject['root_gocqhttp_terminal_data'][hash] = []
-                                                        self.UIObject['root_gocqhttp_terminal_data'][hash].append(
-                                                            rx_packet_data.key['data']['data']
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_gocqhttp_terminal_data'][hash]
-                                                        ) > self.UIObject['root_gocqhttp_terminal_data_max']:
-                                                            self.UIObject['root_gocqhttp_terminal_data'][hash].pop(0)
-                                                        if hash in self.UIObject['root_gocqhttp_terminal']:
-                                                            self.UIObject['root_gocqhttp_terminal'][hash].tree_add_line(
-                                                                rx_packet_data.key['data']['data']
-                                                            )
-                                                elif 'qrcode' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'path' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash in self.bot_info:
-                                                            if hash in self.UIObject['root_qrcode_window']:
-                                                                try:
-                                                                    self.UIObject['root_qrcode_window'][hash].stop()
-                                                                except Exception:
-                                                                    pass
-                                                            self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
-                                                                Model_name='qrcode_window',
-                                                                logger_proc=self.Proc_info.logger_proc.log,
-                                                                root=self,
-                                                                root_tk=None,
-                                                                bot=self.bot_info[hash],
-                                                                path=rx_packet_data.key['data']['path']
-                                                            )
-                                                            self.UIObject['root_qrcode_window'][hash].start()
-                                                elif 'token_get' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'token' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        self.setGoCqhttpModelSend(
-                                                            hash=rx_packet_data.key['data']['hash'],
-                                                            data=rx_packet_data.key['data']['token']
-                                                        )
-                                                elif 'gocqhttp_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startGoCqhttpTerminalUI(rx_packet_data.key['data']['hash'])
-                                        elif 'walleq' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_walleq_menu_list'] is None:
-                                                        self.UIData['shallow_walleq_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_walleq_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'walleq'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startWalleQTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in self.UIObject['root_walleq_terminal_data']:
-                                                            self.UIObject['root_walleq_terminal_data'][hash] = []
-                                                        self.UIObject['root_walleq_terminal_data'][hash].append(
-                                                            rx_packet_data.key['data']['data']
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_walleq_terminal_data'][hash]
-                                                        ) > self.UIObject['root_walleq_terminal_data_max']:
-                                                            self.UIObject['root_walleq_terminal_data'][hash].pop(0)
-                                                        if hash in self.UIObject['root_walleq_terminal']:
-                                                            self.UIObject['root_walleq_terminal'][hash].tree_add_line(
-                                                                rx_packet_data.key['data']['data']
-                                                            )
-                                                elif 'qrcode' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'path' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash in self.bot_info:
-                                                            if hash in self.UIObject['root_qrcode_window']:
-                                                                try:
-                                                                    self.UIObject['root_qrcode_window'][hash].stop()
-                                                                except Exception:
-                                                                    pass
-                                                            self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
-                                                                Model_name='qrcode_window',
-                                                                logger_proc=self.Proc_info.logger_proc.log,
-                                                                root=self,
-                                                                root_tk=None,
-                                                                bot=self.bot_info[hash],
-                                                                path=rx_packet_data.key['data']['path']
-                                                            )
-                                                            self.UIObject['root_qrcode_window'][hash].start()
-                                                elif 'walleq_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startWalleQTerminalUI(rx_packet_data.key['data']['hash'])
-                                        elif 'ComWeChatBotClient' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_cwcb_menu_list'] is None:
-                                                        self.UIData['shallow_cwcb_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_cwcb_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'ComWeChatBotClient'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startCWCBTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in self.UIObject['root_cwcb_terminal_data']:
-                                                            self.UIObject['root_cwcb_terminal_data'][hash] = []
-                                                        self.UIObject['root_cwcb_terminal_data'][hash].append(
-                                                            rx_packet_data.key['data']['data']
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_cwcb_terminal_data'][hash]
-                                                        ) > self.UIObject['root_cwcb_terminal_data_max']:
-                                                            self.UIObject['root_cwcb_terminal_data'][hash].pop(0)
-                                                        if hash in self.UIObject['root_cwcb_terminal']:
-                                                            self.UIObject['root_cwcb_terminal'][hash].tree_add_line(
-                                                                rx_packet_data.key['data']['data']
-                                                            )
-                                                elif 'cwcb_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startCWCBTerminalUI(rx_packet_data.key['data']['hash'])
-                                        elif 'opqbot' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_opqbot_menu_list'] is None:
-                                                        self.UIData['shallow_opqbot_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_opqbot_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'opqbot'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startOPQBotTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in self.UIObject['root_opqbot_terminal_data']:
-                                                            self.UIObject['root_opqbot_terminal_data'][hash] = []
-                                                        self.UIObject['root_opqbot_terminal_data'][hash].append(
-                                                            rx_packet_data.key['data']['data']
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_opqbot_terminal_data'][hash]
-                                                        ) > self.UIObject['root_opqbot_terminal_data_max']:
-                                                            self.UIObject['root_opqbot_terminal_data'][hash].pop(0)
-                                                        if hash in self.UIObject['root_opqbot_terminal']:
-                                                            self.UIObject['root_opqbot_terminal'][hash].tree_add_line(
-                                                                rx_packet_data.key['data']['data']
-                                                            )
-                                                elif 'qrcode' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'path' in rx_packet_data.key['data']
-                                                    ):
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        path = rx_packet_data.key['data']['path']
-                                                        # print(rx_packet_data.key['data'])
-                                                        self.sendOpenQRcodeUrl(hash, path)
-                                                elif 'opqbot_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startOPQBotTerminalUI(rx_packet_data.key['data']['hash'])
-                                        elif 'virtual_terminal' == rx_packet_data.key['data']['action']:
-                                            if 'event' in rx_packet_data.key['data']:
-                                                if 'init' == rx_packet_data.key['data']['event']:
-                                                    if self.UIData['shallow_virtual_terminal_menu_list'] is None:
-                                                        self.UIData['shallow_virtual_terminal_menu_list'] = []
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        if rx_packet_data.key['data']['hash'] in self.bot_info:
-                                                            tmp_title = '%s' % (
-                                                                str(
-                                                                    self.bot_info[rx_packet_data.key['data']['hash']].id
-                                                                )
-                                                            )
-                                                            self.UIData['shallow_virtual_terminal_menu_list'].append(
-                                                                [
-                                                                    tmp_title,
-                                                                    rx_packet_data.key['data']['hash'],
-                                                                    '',
-                                                                    'virtual_terminal'
-                                                                ]
-                                                            )
-                                                            self.updateShallowMenuList()
-                                                    if self.UIObject['root_shallow'] is not None:
-                                                        self.updateShallow()
-                                                    self.startVirtualTerminalUISend(rx_packet_data.key['data']['hash'])
-                                                elif 'virtual_terminal_on' == rx_packet_data.key['data']['event']:
-                                                    if 'hash' in rx_packet_data.key['data']:
-                                                        self.startVirtualTerminalUI(rx_packet_data.key['data']['hash'])
-                                                elif 'log' == rx_packet_data.key['data']['event']:
-                                                    if (
-                                                        'hash' in rx_packet_data.key['data']
-                                                        and 'data' in rx_packet_data.key['data']
-                                                        and 'name' in rx_packet_data.key['data']
-                                                    ):
-                                                        user_conf = {
-                                                            "user_name": "未知",
-                                                            "user_id": "-1",
-                                                            "flag_group": True,
-                                                            "target_id": "-1",
-                                                            "group_role": "member",
-                                                        }
-                                                        if (
-                                                            "user_conf" in rx_packet_data.key['data']
-                                                            and rx_packet_data.key['data']["user_conf"] is not None
-                                                        ):
-                                                            user_conf.update(rx_packet_data.key['data']["user_conf"])
-                                                        hash = rx_packet_data.key['data']['hash']
-                                                        if hash not in (
-                                                            self.UIObject['root_virtual_terminal_terminal_data']
-                                                        ):
-                                                            (
-                                                                self.UIObject
-                                                                ['root_virtual_terminal_terminal_data']
-                                                                [hash]
-                                                            ) = []
-                                                        (
-                                                            self.UIObject['root_virtual_terminal_terminal_data'][hash]
-                                                            .append(rx_packet_data.key['data'])
-                                                        )
-                                                        if len(
-                                                            self.UIObject['root_virtual_terminal_terminal_data'][hash]
-                                                        ) > self.UIObject['root_virtual_terminal_terminal_data_max']:
-                                                            (
-                                                                self.UIObject
-                                                                ['root_virtual_terminal_terminal_data']
-                                                                [hash]
-                                                                .pop(0)
-                                                            )
-                                                        if hash in self.UIObject['root_virtual_terminal_terminal']:
-                                                            (
-                                                                self.UIObject['root_virtual_terminal_terminal'][hash]
-                                                                .tree_add_line(rx_packet_data.key['data'], user_conf)
-                                                            )
-                                        elif 'OlivOS_terminal_on' == rx_packet_data.key['data']['action']:
-                                            self.startOlivOSTerminalUI()
+                                        )
+                                        self.UIData['shallow_napcat_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'napcat'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startNapCatTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in self.UIObject['root_napcat_terminal_data']:
+                                        self.UIObject['root_napcat_terminal_data'][hash] = []
+                                    self.UIObject['root_napcat_terminal_data'][hash].append(
+                                        rx_packet_data.key['data']['data']
+                                    )
+                                    if len(
+                                        self.UIObject['root_napcat_terminal_data'][hash]
+                                    ) > self.UIObject['root_napcat_terminal_data_max']:
+                                        self.UIObject['root_napcat_terminal_data'][hash].pop(0)
+                                    if hash in self.UIObject['root_napcat_terminal']:
+                                        self.UIObject['root_napcat_terminal'][hash].tree_add_line(
+                                            rx_packet_data.key['data']['data']
+                                        )
+                            elif 'qrcode' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'path' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash in self.bot_info:
+                                        if hash in self.UIObject['root_qrcode_window']:
+                                            try:
+                                                self.UIObject['root_qrcode_window'][hash].stop()
+                                            except Exception:
+                                                pass
+                                        self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
+                                            Model_name='qrcode_window',
+                                            logger_proc=self.Proc_info.logger_proc.log,
+                                            root=self,
+                                            root_tk=None,
+                                            bot=self.bot_info[hash],
+                                            path=rx_packet_data.key['data']['path']
+                                        )
+                                        self.UIObject['root_qrcode_window'][hash].start()
+                            elif 'napcat_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startNapCatTerminalUI(rx_packet_data.key['data']['hash'])
+                    elif 'gocqhttp' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_gocqhttp_menu_list'] is None:
+                                    self.UIData['shallow_gocqhttp_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
+                                            )
+                                        )
+                                        self.UIData['shallow_gocqhttp_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'gocqhttp'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startGoCqhttpTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in self.UIObject['root_gocqhttp_terminal_data']:
+                                        self.UIObject['root_gocqhttp_terminal_data'][hash] = []
+                                    self.UIObject['root_gocqhttp_terminal_data'][hash].append(
+                                        rx_packet_data.key['data']['data']
+                                    )
+                                    if len(
+                                        self.UIObject['root_gocqhttp_terminal_data'][hash]
+                                    ) > self.UIObject['root_gocqhttp_terminal_data_max']:
+                                        self.UIObject['root_gocqhttp_terminal_data'][hash].pop(0)
+                                    if hash in self.UIObject['root_gocqhttp_terminal']:
+                                        self.UIObject['root_gocqhttp_terminal'][hash].tree_add_line(
+                                            rx_packet_data.key['data']['data']
+                                        )
+                            elif 'qrcode' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'path' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash in self.bot_info:
+                                        if hash in self.UIObject['root_qrcode_window']:
+                                            try:
+                                                self.UIObject['root_qrcode_window'][hash].stop()
+                                            except Exception:
+                                                pass
+                                        self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
+                                            Model_name='qrcode_window',
+                                            logger_proc=self.Proc_info.logger_proc.log,
+                                            root=self,
+                                            root_tk=None,
+                                            bot=self.bot_info[hash],
+                                            path=rx_packet_data.key['data']['path']
+                                        )
+                                        self.UIObject['root_qrcode_window'][hash].start()
+                            elif 'token_get' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'token' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    self.setGoCqhttpModelSend(
+                                        hash=rx_packet_data.key['data']['hash'],
+                                        data=rx_packet_data.key['data']['token']
+                                    )
+                            elif 'gocqhttp_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startGoCqhttpTerminalUI(rx_packet_data.key['data']['hash'])
+                    elif 'walleq' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_walleq_menu_list'] is None:
+                                    self.UIData['shallow_walleq_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
+                                            )
+                                        )
+                                        self.UIData['shallow_walleq_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'walleq'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startWalleQTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in self.UIObject['root_walleq_terminal_data']:
+                                        self.UIObject['root_walleq_terminal_data'][hash] = []
+                                    self.UIObject['root_walleq_terminal_data'][hash].append(
+                                        rx_packet_data.key['data']['data']
+                                    )
+                                    if len(
+                                        self.UIObject['root_walleq_terminal_data'][hash]
+                                    ) > self.UIObject['root_walleq_terminal_data_max']:
+                                        self.UIObject['root_walleq_terminal_data'][hash].pop(0)
+                                    if hash in self.UIObject['root_walleq_terminal']:
+                                        self.UIObject['root_walleq_terminal'][hash].tree_add_line(
+                                            rx_packet_data.key['data']['data']
+                                        )
+                            elif 'qrcode' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'path' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash in self.bot_info:
+                                        if hash in self.UIObject['root_qrcode_window']:
+                                            try:
+                                                self.UIObject['root_qrcode_window'][hash].stop()
+                                            except Exception:
+                                                pass
+                                        self.UIObject['root_qrcode_window'][hash] = QRcodeUI(
+                                            Model_name='qrcode_window',
+                                            logger_proc=self.Proc_info.logger_proc.log,
+                                            root=self,
+                                            root_tk=None,
+                                            bot=self.bot_info[hash],
+                                            path=rx_packet_data.key['data']['path']
+                                        )
+                                        self.UIObject['root_qrcode_window'][hash].start()
+                            elif 'walleq_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startWalleQTerminalUI(rx_packet_data.key['data']['hash'])
+                    elif 'ComWeChatBotClient' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_cwcb_menu_list'] is None:
+                                    self.UIData['shallow_cwcb_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
+                                            )
+                                        )
+                                        self.UIData['shallow_cwcb_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'ComWeChatBotClient'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startCWCBTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in self.UIObject['root_cwcb_terminal_data']:
+                                        self.UIObject['root_cwcb_terminal_data'][hash] = []
+                                    self.UIObject['root_cwcb_terminal_data'][hash].append(
+                                        rx_packet_data.key['data']['data']
+                                    )
+                                    if len(
+                                        self.UIObject['root_cwcb_terminal_data'][hash]
+                                    ) > self.UIObject['root_cwcb_terminal_data_max']:
+                                        self.UIObject['root_cwcb_terminal_data'][hash].pop(0)
+                                    if hash in self.UIObject['root_cwcb_terminal']:
+                                        self.UIObject['root_cwcb_terminal'][hash].tree_add_line(
+                                            rx_packet_data.key['data']['data']
+                                        )
+                            elif 'cwcb_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startCWCBTerminalUI(rx_packet_data.key['data']['hash'])
+                    elif 'opqbot' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_opqbot_menu_list'] is None:
+                                    self.UIData['shallow_opqbot_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
+                                            )
+                                        )
+                                        self.UIData['shallow_opqbot_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'opqbot'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startOPQBotTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in self.UIObject['root_opqbot_terminal_data']:
+                                        self.UIObject['root_opqbot_terminal_data'][hash] = []
+                                    self.UIObject['root_opqbot_terminal_data'][hash].append(
+                                        rx_packet_data.key['data']['data']
+                                    )
+                                    if len(
+                                        self.UIObject['root_opqbot_terminal_data'][hash]
+                                    ) > self.UIObject['root_opqbot_terminal_data_max']:
+                                        self.UIObject['root_opqbot_terminal_data'][hash].pop(0)
+                                    if hash in self.UIObject['root_opqbot_terminal']:
+                                        self.UIObject['root_opqbot_terminal'][hash].tree_add_line(
+                                            rx_packet_data.key['data']['data']
+                                        )
+                            elif 'qrcode' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'path' in rx_packet_data.key['data']
+                                ):
+                                    hash = rx_packet_data.key['data']['hash']
+                                    path = rx_packet_data.key['data']['path']
+                                    # print(rx_packet_data.key['data'])
+                                    self.sendOpenQRcodeUrl(hash, path)
+                            elif 'opqbot_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startOPQBotTerminalUI(rx_packet_data.key['data']['hash'])
+                    elif 'virtual_terminal' == rx_packet_data.key['data']['action']:
+                        if 'event' in rx_packet_data.key['data']:
+                            if 'init' == rx_packet_data.key['data']['event']:
+                                if self.UIData['shallow_virtual_terminal_menu_list'] is None:
+                                    self.UIData['shallow_virtual_terminal_menu_list'] = []
+                                if 'hash' in rx_packet_data.key['data']:
+                                    if rx_packet_data.key['data']['hash'] in self.bot_info:
+                                        tmp_title = '%s' % (
+                                            str(
+                                                self.bot_info[rx_packet_data.key['data']['hash']].id
+                                            )
+                                        )
+                                        self.UIData['shallow_virtual_terminal_menu_list'].append(
+                                            [
+                                                tmp_title,
+                                                rx_packet_data.key['data']['hash'],
+                                                '',
+                                                'virtual_terminal'
+                                            ]
+                                        )
+                                        self.updateShallowMenuList()
+                                if self.UIObject['root_shallow'] is not None:
+                                    self.updateShallow()
+                                self.startVirtualTerminalUISend(rx_packet_data.key['data']['hash'])
+                            elif 'virtual_terminal_on' == rx_packet_data.key['data']['event']:
+                                if 'hash' in rx_packet_data.key['data']:
+                                    self.startVirtualTerminalUI(rx_packet_data.key['data']['hash'])
+                            elif 'log' == rx_packet_data.key['data']['event']:
+                                if (
+                                    'hash' in rx_packet_data.key['data']
+                                    and 'data' in rx_packet_data.key['data']
+                                    and 'name' in rx_packet_data.key['data']
+                                ):
+                                    user_conf = {
+                                        "user_name": "未知",
+                                        "user_id": "-1",
+                                        "flag_group": True,
+                                        "target_id": "-1",
+                                        "group_role": "member",
+                                    }
+                                    if (
+                                        "user_conf" in rx_packet_data.key['data']
+                                        and rx_packet_data.key['data']["user_conf"] is not None
+                                    ):
+                                        user_conf.update(rx_packet_data.key['data']["user_conf"])
+                                    hash = rx_packet_data.key['data']['hash']
+                                    if hash not in (
+                                        self.UIObject['root_virtual_terminal_terminal_data']
+                                    ):
+                                        (
+                                            self.UIObject
+                                            ['root_virtual_terminal_terminal_data']
+                                            [hash]
+                                        ) = []
+                                    (
+                                        self.UIObject['root_virtual_terminal_terminal_data'][hash]
+                                        .append(rx_packet_data.key['data'])
+                                    )
+                                    if len(
+                                        self.UIObject['root_virtual_terminal_terminal_data'][hash]
+                                    ) > self.UIObject['root_virtual_terminal_terminal_data_max']:
+                                        (
+                                            self.UIObject
+                                            ['root_virtual_terminal_terminal_data']
+                                            [hash]
+                                            .pop(0)
+                                        )
+                                    if hash in self.UIObject['root_virtual_terminal_terminal']:
+                                        (
+                                            self.UIObject['root_virtual_terminal_terminal'][hash]
+                                            .tree_add_line(rx_packet_data.key['data'], user_conf)
+                                        )
+                    elif 'OlivOS_terminal_on' == rx_packet_data.key['data']['action']:
+                        self.startOlivOSTerminalUI()
 
     def getPlatformDisplayName(self, bot_info):
         """
