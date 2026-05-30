@@ -908,81 +908,86 @@ class dock(OlivOS.API.Proc_templet):
         if hash in self.bot_info:
             if hash in self.UIObject['root_gocqhttp_terminal']:
                 try:
-                    self.UIObject['root_gocqhttp_terminal'][hash].stop()
+                    self.UIObject['root_gocqhttp_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_gocqhttp_terminal'][hash] = gocqhttpTerminalUI(
-                Model_name='gocqhttp_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_gocqhttp_terminal'][hash].start()
+            else:
+                self.UIObject['root_gocqhttp_terminal'][hash] = gocqhttpTerminalUI(
+                    Model_name='gocqhttp_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_gocqhttp_terminal'][hash].start()
 
     def startWalleQTerminalUI(self, hash):
         if hash in self.bot_info:
             if hash in self.UIObject['root_walleq_terminal']:
                 try:
-                    self.UIObject['root_walleq_terminal'][hash].stop()
+                    self.UIObject['root_walleq_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_walleq_terminal'][hash] = walleqTerminalUI(
-                Model_name='walleq_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_walleq_terminal'][hash].start()
+            else:
+                self.UIObject['root_walleq_terminal'][hash] = walleqTerminalUI(
+                    Model_name='walleq_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_walleq_terminal'][hash].start()
 
     def startCWCBTerminalUI(self, hash):
         if hash in self.bot_info:
             if hash in self.UIObject['root_cwcb_terminal']:
                 try:
-                    self.UIObject['root_cwcb_terminal'][hash].stop()
+                    self.UIObject['root_cwcb_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_cwcb_terminal'][hash] = CWCBTerminalUI(
-                Model_name='cwcb_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_cwcb_terminal'][hash].start()
+            else:
+                self.UIObject['root_cwcb_terminal'][hash] = CWCBTerminalUI(
+                    Model_name='cwcb_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_cwcb_terminal'][hash].start()
 
     def startOPQBotTerminalUI(self, hash):
         if hash in self.bot_info:
             if hash in self.UIObject['root_opqbot_terminal']:
                 try:
-                    self.UIObject['root_opqbot_terminal'][hash].stop()
+                    self.UIObject['root_opqbot_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_opqbot_terminal'][hash] = opqbotTerminalUI(
-                Model_name='opqbot_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_opqbot_terminal'][hash].start()
+            else:
+                self.UIObject['root_opqbot_terminal'][hash] = opqbotTerminalUI(
+                    Model_name='opqbot_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_opqbot_terminal'][hash].start()
 
     def startNapCatTerminalUI(self, hash):
         if hash in self.bot_info:
             if hash in self.UIObject['root_napcat_terminal']:
                 try:
-                    self.UIObject['root_napcat_terminal'][hash].stop()
+                    self.UIObject['root_napcat_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_napcat_terminal'][hash] = napcatTerminalUI(
-                Model_name='napcat_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_napcat_terminal'][hash].start()
+            else:
+                self.UIObject['root_napcat_terminal'][hash] = napcatTerminalUI(
+                    Model_name='napcat_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_napcat_terminal'][hash].start()
 
     def startVirtualTerminalUISendFunc(self, hash):
         def resFunc():
@@ -1008,17 +1013,18 @@ class dock(OlivOS.API.Proc_templet):
         if hash in self.bot_info:
             if hash in self.UIObject['root_virtual_terminal_terminal']:
                 try:
-                    self.UIObject['root_virtual_terminal_terminal'][hash].stop()
+                    self.UIObject['root_virtual_terminal_terminal'][hash].lift()
                 except Exception:
                     pass
-            self.UIObject['root_virtual_terminal_terminal'][hash] = VirtualTerminalUI(
-                Model_name='virtual_terminal',
-                logger_proc=self.Proc_info.logger_proc.log,
-                root=self,
-                root_tk=None,
-                bot=self.bot_info[hash]
-            )
-            self.UIObject['root_virtual_terminal_terminal'][hash].start()
+            else:
+                self.UIObject['root_virtual_terminal_terminal'][hash] = VirtualTerminalUI(
+                    Model_name='virtual_terminal',
+                    logger_proc=self.Proc_info.logger_proc.log,
+                    root=self,
+                    root_tk=None,
+                    bot=self.bot_info[hash]
+                )
+                self.UIObject['root_virtual_terminal_terminal'][hash].start()
 
     def startOlivOSTerminalUISend(self):
         self.sendRxEvent(
