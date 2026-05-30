@@ -170,19 +170,19 @@ default_Conf = {
             "logger_proc": "OlivOS_logger"
         },
         "OlivOS_multiLoginUI": {
-            "enable": True,
+            "enable": False,
             "name": "OlivOS_multiLoginUI",
             "type": "multiLoginUI",
             "logger_proc": "OlivOS_logger"
         },
         "OlivOS_multiLoginUI_asayc": {
-            "enable": True,
+            "enable": False,
             "name": "OlivOS_multiLoginUI_asayc",
             "type": "multiLoginUI_asayc",
             "logger_proc": "OlivOS_logger"
         },
         "OlivOS_nativeWinUIAPI": {
-            "enable": True,
+            "enable": False,
             "name": "OlivOS_nativeWinUIAPI",
             "type": "nativeWinUI",
             "interval": 0.002,
