@@ -531,7 +531,6 @@ class dock(OlivOS.API.Proc_templet):
                                 ):
                                     hash = rx_packet_data.key['data']['hash']
                                     path = rx_packet_data.key['data']['path']
-                                    # print(rx_packet_data.key['data'])
                                     self.sendOpenQRcodeUrl(hash, path)
                             elif 'opqbot_terminal_on' == rx_packet_data.key['data']['event']:
                                 if 'hash' in rx_packet_data.key['data']:
@@ -1034,18 +1033,20 @@ class dock(OlivOS.API.Proc_templet):
         )
 
     def startOlivOSTerminalUI(self):
-        if self.UIObject['root_OlivOS_terminal'] is not None:
+        existing: 'OlivOSTerminalUI' = self.UIObject.get('root_OlivOS_terminal')
+        if existing is not None:
             try:
-                self.UIObject['root_OlivOS_terminal'].stop()
+                existing.lift()
             except Exception:
                 pass
-        self.UIObject['root_OlivOS_terminal'] = OlivOSTerminalUI(
-            Model_name='OlivOS_terminal',
-            logger_proc=self.Proc_info.logger_proc.log,
-            root=self,
-            root_tk=None
-        )
-        self.UIObject['root_OlivOS_terminal'].start()
+        else:
+            self.UIObject['root_OlivOS_terminal'] = OlivOSTerminalUI(
+                Model_name='OlivOS_terminal',
+                logger_proc=self.Proc_info.logger_proc.log,
+                root=self,
+                root_tk=None
+            )
+            self.UIObject['root_OlivOS_terminal'].start()
 
     def setGoCqhttpModelSend(self, hash, data):
         self.sendControlEventSend(
@@ -1596,6 +1597,10 @@ class BaseTerminalUI:
                 self.UIObject[name].configure(bg=self.UIConfig['color_006'])
             elif action == '<Leave>':
                 self.UIObject[name].configure(bg=self.UIConfig['color_003'])
+
+    def lift(self):
+        self.UIObject['root'].lift()
+        self.UIObject['root'].focus_force()
 
     def stop(self):
         self.exit()
@@ -2156,7 +2161,7 @@ class VirtualTerminalUI(BaseTerminalUI):
 
 
 class shallow(object):
-    def __init__(self, name: str, image: str, root):
+    def __init__(self, name: str, image: str, root: 'dock'):
         self.name = name
         self.image = image
         self.root = root
