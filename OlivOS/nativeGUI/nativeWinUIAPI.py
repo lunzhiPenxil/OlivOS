@@ -1955,15 +1955,14 @@ class VirtualTerminalUI(BaseTerminalUI):
             super()._rightKey_action(action)
 
     def _root_AccountEdit_init(self):
-        if "root_terminal_account_edit" not in self.UIObject or self.UIObject['root_terminal_account_edit'] is None:
+        existing = self.UIObject.get('root_terminal_account_edit')
+        if existing is None:
             self.UIObject['root_terminal_account_edit'] = self._VirtualTerminalUI_AccountEdit(
                 Model_name=self.Model_name, root=self, root_tk=self.root_tk, bot=self.bot
             )
             self.UIObject['root_terminal_account_edit'].start()
         else:
-            self.UIObject['root_terminal_account_edit'].stop()
-            self.UIObject['root_terminal_account_edit'] = None
-            self._root_AccountEdit_init()
+            existing.lift()
 
     def _root_Entry_enter(self, name, event):
         if name == 'root_input':
