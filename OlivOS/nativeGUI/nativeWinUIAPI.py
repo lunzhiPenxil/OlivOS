@@ -2023,6 +2023,7 @@ class VirtualTerminalUI(BaseTerminalUI):
 
         def start(self):
             self._build_main_window()
+            self._init_style()
             self._build_edit_fields()
             self._build_save_button()
             self.UIObject['root'].mainloop()
@@ -2083,13 +2084,27 @@ class VirtualTerminalUI(BaseTerminalUI):
             )
             self.UIObject['root_button_save'].place(x=15+80, y=15+30*5, width=300-15*2-80, height=24)
 
+        def _init_style(self):
+            self.UIData['style'] = ttk.Style(self.UIObject['root'])
+            self.UIData['style'].configure(
+                "TCheckbutton",
+                indicatorbackground=self.UIConfig['color_001'],
+                indicatorforeground=self.UIConfig['color_004'],
+                background=self.UIConfig['color_001'],
+                foreground=self.UIConfig['color_004']
+            )
+
         def _root_Checkbutton_init(self, obj_root, obj_name, str_name, x, y, width_t, width, height, action, title=''):
             # 简化版复选框初始化
             self.UIObject[obj_name + '=Label'] = tkinter.Label(self.UIObject[obj_root], text=title)
             self.UIObject[obj_name + '=Label'].configure(bg=self.UIConfig['color_001'], fg=self.UIConfig['color_004'])
             self.UIObject[obj_name + '=Label'].place(x=x-width_t, y=y, width=width_t, height=height)
             self.UIObject[obj_name] = ttk.Checkbutton(
-                self.UIObject[obj_root], variable=self.UIData[str_name], onvalue=True, offvalue=False
+                self.UIObject[obj_root],
+                variable=self.UIData[str_name],
+                onvalue=True,
+                offvalue=False,
+                style='TCheckbutton'
             )
             self.UIObject[obj_name].place(x=x, y=y)
 
