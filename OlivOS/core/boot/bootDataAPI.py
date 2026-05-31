@@ -14,6 +14,12 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 @Desc      :   None
 '''
 
+extend_queue: list[str] = [
+    "OlivOS_control_queue",
+    "OlivOS_rx_queue",
+    "OlivOS_logger_queue",
+]
+
 default_Conf = {
     "system": {
         "name": "OlivOS",

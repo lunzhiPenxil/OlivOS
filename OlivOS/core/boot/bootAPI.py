@@ -22,12 +22,14 @@ import threading
 import time
 import json
 import multiprocessing
+import multiprocessing.queues
 import platform
 import psutil
 import atexit
 import importlib
 import traceback
 import copy
+from typing import Optional
 
 import OlivOS
 
@@ -43,15 +45,26 @@ def releaseDir(dir_path):
 
 
 class Entity(object):
-    def __init__(self, basic_conf=None, patch_conf=None):
-        self.Config = {
+    def __init__(
+        self,
+        *,
+        basic_conf_path: Optional[str] = None,
+        basic_conf: Optional[dict] = None,
+        patch_conf_path: Optional[str] = None,
+        patch_conf: Optional[dict] = None,
+        extend_queue: Optional[dict[str, multiprocessing.queues.Queue]] = None
+    ):
+        self.Config: dict[str, str | dict] = {
             'basic_conf_path': './conf/basic.json',
-            'patch_conf_path': './conf/config.json'
+            'basic_conf': basic_conf,
+            'patch_conf_path': './conf/config.json',
+            'patch_conf': patch_conf,
+            'extend_queue': extend_queue,
         }
-        if basic_conf is not None:
-            self.Config['basic_conf_path'] = basic_conf
-        if patch_conf is not None:
-            self.Config['patch_conf_path'] = patch_conf
+        if basic_conf_path is not None:
+            self.Config['basic_conf_path'] = basic_conf_path
+        if patch_conf_path is not None:
+            self.Config['patch_conf_path'] = patch_conf_path
 
     def start(self):
         global gLoggerProc
@@ -59,8 +72,9 @@ class Entity(object):
         multiprocessing.freeze_support()
         atexit.register(killMain)
         sys.setrecursionlimit(100000)
-        basic_conf_path = self.Config['basic_conf_path']
-        patch_conf_path = self.Config['patch_conf_path']
+        basic_conf_path: str = self.Config['basic_conf_path']
+        patch_conf_path: str = self.Config['patch_conf_path']
+        extend_queue: Optional[dict[str, multiprocessing.queues.Queue]] = self.Config['extend_queue']
         basic_conf = None
         patch_conf = None
         basic_conf_models = None
@@ -81,6 +95,11 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
         print(start_up_show_str)
         print('･ﾟ( ﾉヮ´ )(`ヮ´ )σ`∀´) ﾟ∀ﾟ)σ' + ' [OlivOS - Witness Union]\n')
 
+        if type(self.Config['basic_conf']) is dict:
+            preLoadPrint("init config with manager ... ")
+            basic_conf = self.Config['basic_conf']
+            preLoadPrint("init config with manager ... done")
+
         preLoadPrint(f"init config from [{basic_conf_path}] ... ")
         try:
             with open(basic_conf_path, 'r', encoding='utf-8') as basic_conf_f:
@@ -92,6 +111,11 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
             preLoadPrint('init config from default ... done')
         else:
             preLoadPrint(f"init config from [{basic_conf_path}] ... done")
+
+        if type(self.Config['patch_conf']) is dict:
+            preLoadPrint("patch config with manager ... ")
+            patch_conf = self.Config['patch_conf']
+            preLoadPrint("patch config with manager ... done")
 
         preLoadPrint(f"patch config from [{patch_conf_path}] ... ")
         try:
@@ -116,9 +140,17 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
         preLoadPrint('generate queue from config ... ')
         multiprocessing_dict = {}
         for queue_name_this in basic_conf['queue']:
-            preLoadPrint('generate [%s] queue ...' % queue_name_this)
-            multiprocessing_dict[queue_name_this] = multiprocessing.Queue()
-            preLoadPrint('generate [%s] queue ... done' % queue_name_this)
+            preLoadPrint(f"generate [{queue_name_this}] queue ...")
+            if (
+                type(extend_queue) is dict
+                and queue_name_this in extend_queue
+                and type(extend_queue[queue_name_this]) is multiprocessing.queues.Queue
+            ):
+                multiprocessing_dict[queue_name_this] = extend_queue[queue_name_this]
+                preLoadPrint(f"generate [{queue_name_this}] queue ... extend ... done")
+            else:
+                multiprocessing_dict[queue_name_this] = multiprocessing.Queue()
+                preLoadPrint(f"generate [{queue_name_this}] queue ... generate ... done")
         preLoadPrint('generate queue from config ... all done')
 
         main_control = OlivOS.API.Control(
@@ -150,16 +182,13 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
         setSplashClose()
 
         while True:
-            if main_control.control_queue.empty():
-                time.sleep(main_control.scan_interval)
+            try:
+                rx_packet_data: OlivOS.API.Control.packet = main_control.control_queue.get(
+                    block=True,
+                    timeout=main_control.scan_interval,
+                )
+            except Exception:
                 continue
-            else:
-                try:
-                    rx_packet_data = main_control.control_queue.get(
-                        block=False
-                    )
-                except Exception:
-                    continue
             if rx_packet_data.action == 'init':
                 # 兼容Win平台多进程，避免形成fork-bomb
                 multiprocessing.freeze_support()

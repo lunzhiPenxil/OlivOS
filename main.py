@@ -17,6 +17,7 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 # here put the import lib
 
 import os
+import multiprocessing
 
 import OlivOS
 
@@ -24,6 +25,11 @@ if __name__ == '__main__':
     if not os.path.exists('./conf'):
         os.makedirs('./conf')
     OlivOS.bootAPI.Entity(
-        basic_conf='./conf/basic.json',
-        patch_conf='./conf/config.json'
+        basic_conf_path='./conf/basic.json',
+        basic_conf=OlivOS.bootDataAPI.default_Conf,
+        patch_conf_path='./conf/config.json',
+        extend_queue={
+            x: multiprocessing.Queue()
+            for x in OlivOS.bootDataAPI.extend_queue
+        },
     ).start()

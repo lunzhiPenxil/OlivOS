@@ -16,6 +16,7 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 
 import sys
 import multiprocessing
+import multiprocessing.queues
 import threading
 import hashlib
 import time
@@ -33,11 +34,17 @@ mod_global_name = sys.modules[__name__]
 
 
 class Control(object):
-    def __init__(self, name, init_list, control_queue, scan_interval):
-        self.name = name
-        self.init_list = init_list
-        self.control_queue = control_queue
-        self.scan_interval = scan_interval
+    def __init__(
+        self,
+        name: str,
+        init_list: list[str],
+        control_queue: multiprocessing.queues.Queue,
+        scan_interval: float
+    ):
+        self.name: str = name
+        self.init_list: list[str] = init_list
+        self.control_queue: multiprocessing.queues.Queue = control_queue
+        self.scan_interval: float = float(scan_interval)
 
     class packet(object):
         def __init__(self, action, key=None):
