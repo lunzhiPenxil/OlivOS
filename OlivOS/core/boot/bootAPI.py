@@ -114,7 +114,7 @@ _  / / /_  /  __  / __ | / /_  / / /____ \
 
         if type(self.Config['patch_conf']) is dict:
             preLoadPrint("patch config with manager ... ")
-            patch_conf = self.Config['patch_conf']
+            basic_conf = get_patch_config(basic_conf, self.Config['patch_conf'])
             preLoadPrint("patch config with manager ... done")
 
         preLoadPrint(f"patch config from [{patch_conf_path}] ... ")

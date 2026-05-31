@@ -28,6 +28,7 @@ if __name__ == '__main__':
         basic_conf_path='./conf/basic.json',
         basic_conf=OlivOS.bootDataAPI.default_Conf,
         patch_conf_path='./conf/config.json',
+        patch_conf=OlivOS.bootDataAPI.native_patch_Conf,
         extend_queue={
             x: multiprocessing.Queue()
             for x in OlivOS.bootDataAPI.extend_queue

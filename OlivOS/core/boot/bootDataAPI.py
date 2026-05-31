@@ -20,6 +20,21 @@ extend_queue: list[str] = [
     "OlivOS_logger_queue",
 ]
 
+native_patch_Conf = {
+    "system": {},
+    "models": {
+        "OlivOS_multiLoginUI": {
+            "enable": True
+        },
+        "OlivOS_multiLoginUI_asayc": {
+            "enable": True
+        },
+        "OlivOS_nativeWinUIAPI": {
+            "enable": True
+        }
+    }
+}
+
 default_Conf = {
     "system": {
         "name": "OlivOS",
